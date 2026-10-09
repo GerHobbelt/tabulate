@@ -44,15 +44,19 @@ SOFTWARE.
 
 #if __cplusplus >= 201703L
 #include <optional>
-using std::optional;
 #else
 #include <tabulate/optional_lite.hpp>
-using nonstd::optional;
 #endif
 
 #include <vector>
 
 namespace tabulate {
+
+#if __cplusplus >= 201703L
+using std::optional;
+#else
+using nonstd::optional;
+#endif
 
 class Format {
 public:
@@ -482,8 +486,12 @@ public:
         // If the current word is too long to fit on a line even on it's own
         // then split the word up.
         while (get_sequence_length(word, locale, is_multi_byte_character_support_enabled) > width) {
-          result += word.substr(0, width - 1) + "-";
-          word = word.substr(width - 1);
+          // Split on a character boundary, not a byte offset, so multi-byte
+          // sequences (e.g. CJK text) aren't cut in half.
+          auto split_at = byte_offset_for_width(word, locale, is_multi_byte_character_support_enabled,
+                                                width - 1);
+          result += word.substr(0, split_at) + "-";
+          word = word.substr(split_at);
           result += '\n';
         }
 

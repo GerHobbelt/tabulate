@@ -5781,6 +5781,18 @@ inline std::ostream &crossed(std::ostream &stream) {
   return stream;
 }
 
+inline std::ostream &black(std::ostream &stream) {
+  if (_internal::is_colorized(stream)) {
+#if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
+    stream << "\033[30m";
+#elif defined(TERMCOLOR_OS_WINDOWS)
+    _internal::win_change_attributes(stream, 0 // black
+    );
+#endif
+  }
+  return stream;
+}
+
 inline std::ostream &grey(std::ostream &stream) {
   if (_internal::is_colorized(stream)) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
@@ -5878,6 +5890,19 @@ inline std::ostream &on_grey(std::ostream &stream) {
 #elif defined(TERMCOLOR_OS_WINDOWS)
     _internal::win_change_attributes(stream, -1,
                                      0 // grey (black)
+    );
+#endif
+  }
+  return stream;
+}
+
+inline std::ostream &on_black(std::ostream &stream) {
+  if (_internal::is_colorized(stream)) {
+#if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
+    stream << "\033[40m";
+#elif defined(TERMCOLOR_OS_WINDOWS)
+    _internal::win_change_attributes(stream, -1,
+                                     0 // black
     );
 #endif
   }
@@ -6253,6 +6278,90 @@ inline size_t get_sequence_length(const std::string &text, const std::string &lo
 #endif
 }
 
+// Returns the number of bytes from the start of `text` whose rendered width
+// does not exceed max_width, without ever splitting a multi-byte character
+// (or ANSI escape sequence) in half. Always advances past at least one
+// character when text is non-empty, even if that character alone is wider
+// than max_width, so callers that force-split long words always make
+// progress. Mirrors get_sequence_length()'s width accounting exactly, so a
+// prefix of this many bytes is guaranteed to measure as <= max_width.
+inline size_t byte_offset_for_width(const std::string &text, const std::string &locale,
+                                    bool is_multi_byte_character_support_enabled,
+                                    size_t max_width) {
+  if (!is_multi_byte_character_support_enabled)
+    return (std::min)(max_width, text.size());
+
+#if defined(_WIN32) || defined(_WIN64)
+  (void)locale;
+  size_t consumed_width = 0;
+  bool first_character = true;
+  const char *p = text.c_str();
+  while (*p != '\0') {
+    if (static_cast<unsigned char>(*p) == 0x1b) {
+      p = skip_ansi_escape_sequence(p);
+      continue;
+    }
+    const char *character_start = p;
+    ++p;
+    while (*p != '\0' && (static_cast<unsigned char>(*p) & 0xC0) == 0x80)
+      ++p; // UTF-8 continuation byte: part of the same character
+    if (!first_character && consumed_width + 1 > max_width)
+      return static_cast<size_t>(character_start - text.c_str());
+    consumed_width += 1;
+    first_character = false;
+  }
+  return text.size();
+#elif defined(__unix__) || defined(__unix) || defined(__APPLE__)
+  const char *previous_locale = std::setlocale(LC_CTYPE, nullptr);
+  const std::string saved_locale = previous_locale != nullptr ? previous_locale : "";
+  std::setlocale(LC_CTYPE, locale.c_str());
+
+  const char *p = text.c_str();
+  std::mbstate_t state = std::mbstate_t();
+  size_t consumed_width = 0;
+  bool first_character = true;
+  size_t result = text.size();
+
+  while (*p != '\0') {
+    if (static_cast<unsigned char>(*p) == 0x1b) {
+      p = skip_ansi_escape_sequence(p);
+      continue;
+    }
+
+    const char *character_start = p;
+    wchar_t wide_character;
+    size_t length = std::mbrtowc(&wide_character, p, MB_CUR_MAX, &state);
+
+    if (length == static_cast<size_t>(-2))
+      break; // truncated multi-byte character at the end of the string
+
+    if (length == static_cast<size_t>(-1)) {
+      state = std::mbstate_t();
+      length = 1; // invalid byte: treat as width 1 and resynchronize
+    } else if (length == 0) {
+      length = 1; // embedded null: treat as a 1-byte character
+    }
+
+    int character_width = wcwidth(wide_character);
+    if (character_width < 0)
+      character_width = 0;
+
+    if (!first_character && consumed_width + static_cast<size_t>(character_width) > max_width) {
+      result = static_cast<size_t>(character_start - text.c_str());
+      break;
+    }
+
+    consumed_width += static_cast<size_t>(character_width);
+    first_character = false;
+    p = character_start + length;
+  }
+
+  if (!saved_locale.empty())
+    std::setlocale(LC_CTYPE, saved_locale.c_str());
+  return result;
+#endif
+}
+
 } // namespace tabulate
 
 /*
@@ -6292,7 +6401,7 @@ SOFTWARE.
 
 namespace tabulate {
 
-enum class Color { none, grey, red, green, yellow, blue, magenta, cyan, white };
+enum class Color { none, grey, red, green, yellow, blue, magenta, cyan, white, black };
 }
 
 /*
@@ -6455,15 +6564,19 @@ SOFTWARE.
 
 #if __cplusplus >= 201703L
 #include <optional>
-using std::optional;
 #else
 // #include <tabulate/optional_lite.hpp>
-using nonstd::optional;
 #endif
 
 #include <vector>
 
 namespace tabulate {
+
+#if __cplusplus >= 201703L
+using std::optional;
+#else
+using nonstd::optional;
+#endif
 
 class Format {
 public:
@@ -6893,8 +7006,12 @@ public:
         // If the current word is too long to fit on a line even on it's own
         // then split the word up.
         while (get_sequence_length(word, locale, is_multi_byte_character_support_enabled) > width) {
-          result += word.substr(0, width - 1) + "-";
-          word = word.substr(width - 1);
+          // Split on a character boundary, not a byte offset, so multi-byte
+          // sequences (e.g. CJK text) aren't cut in half.
+          auto split_at = byte_offset_for_width(word, locale, is_multi_byte_character_support_enabled,
+                                                width - 1);
+          result += word.substr(0, split_at) + "-";
+          word = word.substr(split_at);
           result += '\n';
         }
 
@@ -7478,15 +7595,19 @@ private:
 
 #if __cplusplus >= 201703L
 #include <optional>
-using std::optional;
 #else
 // #include <tabulate/optional_lite.hpp>
-using nonstd::optional;
 #endif
 
 #include <vector>
 
 namespace tabulate {
+
+#if __cplusplus >= 201703L
+using std::optional;
+#else
+using nonstd::optional;
+#endif
 
 class Cell {
 public:
@@ -7555,10 +7676,8 @@ SOFTWARE.
 
 #if __cplusplus >= 201703L
 #include <optional>
-using std::optional;
 #else
 // #include <tabulate/optional_lite.hpp>
-using nonstd::optional;
 #endif
 
 #include <vector>
@@ -7570,6 +7689,12 @@ using nonstd::optional;
 #endif
 
 namespace tabulate {
+
+#if __cplusplus >= 201703L
+using std::optional;
+#else
+using nonstd::optional;
+#endif
 
 class Row {
 public:
@@ -7845,10 +7970,8 @@ SOFTWARE.
 
 #if __cplusplus >= 201703L
 #include <optional>
-using std::optional;
 #else
 // #include <tabulate/optional_lite.hpp>
-using nonstd::optional;
 #endif
 
 #include <string>
@@ -7863,6 +7986,12 @@ using nonstd::optional;
 #endif
 
 namespace tabulate {
+
+#if __cplusplus >= 201703L
+using std::optional;
+#else
+using nonstd::optional;
+#endif
 
 class Column {
 public:
@@ -8398,6 +8527,9 @@ private:
     case Color::white:
       stream << termcolor::white;
       break;
+    case Color::black:
+      stream << termcolor::black;
+      break;
     case Color::none:
     default:
       break;
@@ -8429,6 +8561,9 @@ private:
       break;
     case Color::white:
       stream << termcolor::on_white;
+      break;
+    case Color::black:
+      stream << termcolor::on_black;
       break;
     case Color::none:
     default:
@@ -8530,6 +8665,9 @@ public:
 
   size_t size() const { return rows_.size(); }
 
+  // {rendered width in characters, rendered height in lines} of the printed
+  // table -- NOT the number of data rows/columns. See Table::dimensions()
+  // for that.
   std::pair<size_t, size_t> shape() {
     std::pair<size_t, size_t> result{0, 0};
     std::stringstream stream;
@@ -8977,24 +9115,28 @@ SOFTWARE.
 #if __cplusplus >= 201703L
 #include <string_view>
 #include <variant>
+#else
+// #include <tabulate/string_view_lite.hpp>
+// #include <tabulate/variant_lite.hpp>
+#endif
+
+#include <utility>
+
+namespace tabulate {
+
+#if __cplusplus >= 201703L
 using std::get_if;
 using std::holds_alternative;
 using std::string_view;
 using std::variant;
 using std::visit;
 #else
-// #include <tabulate/string_view_lite.hpp>
-// #include <tabulate/variant_lite.hpp>
 using nonstd::get_if;
 using nonstd::holds_alternative;
 using nonstd::string_view;
 using nonstd::variant;
 using nonstd::visit;
 #endif
-
-#include <utility>
-
-namespace tabulate {
 
 // Unicode box-drawing glyph sets, for use with Table::use_unicode_borders().
 enum class BorderStyle { Light, Heavy, Double };
@@ -9148,6 +9290,10 @@ public:
   }
 
   size_t size() const { return table_->size(); }
+
+  // {number of rows, number of columns} actually added to the table. Not to
+  // be confused with shape(), which measures the *rendered* table instead.
+  std::pair<size_t, size_t> dimensions() const { return {size(), cols_}; }
 
   std::pair<size_t, size_t> shape() { return table_->shape(); }
 
@@ -9472,13 +9618,17 @@ SOFTWARE.
 
 #if __cplusplus >= 201703L
 #include <optional>
-using std::optional;
 #else
 // #include <tabulate/optional_lite.hpp>
-using nonstd::optional;
 #endif
 
 namespace tabulate {
+
+#if __cplusplus >= 201703L
+using std::optional;
+#else
+using nonstd::optional;
+#endif
 
 class LatexExporter : public Exporter {
 

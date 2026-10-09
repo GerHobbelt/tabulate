@@ -28,6 +28,7 @@
 ## Table of Contents
 
 *   [Quick Start](#quick-start)
+    *   [Table Size and Shape](#table-size-and-shape)
 *   [Formatting Options](#formatting-options)
     *   [Style Inheritance Model](#style-inheritance-model)
     *   [Word Wrapping](#word-wrapping)
@@ -35,6 +36,7 @@
     *   [Font Styles](#font-styles)
     *   [Cell Colors](#cell-colors)
     *   [Borders and Corners](#borders-and-corners)
+    *   [Unicode Box Drawing](#unicode-box-drawing)
     *   [Range-based Iteration](#range-based-iteration)
     *   [Nested Tables](#nested-tables)
     *   [UTF-8 Support](#utf-8-support)
@@ -136,6 +138,18 @@ You could also use `Table.print(stream)` to print the table, e.g., `universal_co
 <p align="center">
   <img src="img/universal_constants.png"/>  
 </p>
+
+### Table Size and Shape
+
+`Table.size()` returns the number of rows, and `Table.dimensions()` returns `{rows, columns}` actually added to the table:
+
+```cpp
+Table table;
+table.add_row({"cell"});
+auto [rows, cols] = table.dimensions(); // {1, 1}
+```
+
+**NOTE**: `Table.shape()` is a different, unrelated measurement: it renders the table and returns `{character width, line count}` of that rendered text, not row/column counts. It exists for callers who need to know how much terminal space a printed table will occupy (e.g. for a single-cell table, `shape()` returns the width/height of its printed box, not `{1, 1}`).
 
 ## Formatting Options
 
@@ -401,6 +415,58 @@ int main() {
 <p align="center">
   <img src="img/runic.png"/>  
 </p>
+
+### Unicode Box Drawing
+
+Manually assigning `┌`/`┬`/`┐`, `├`/`┼`/`┤`, and `└`/`┴`/`┘` to the right cells is tedious to get right. `Table::use_unicode_borders()` does it for you, picking the correct corner/junction character for every cell based on its position in the table:
+
+```cpp
+#include <tabulate/table.hpp>
+using namespace tabulate;
+
+int main() {
+  Table table;
+  table.add_row({"col1", "col2"});
+  table.add_row({"val1", "val2"});
+
+  // show_row_separators = true draws a divider (with T-junctions/cross) between every row
+  table.use_unicode_borders(/* show_row_separators = */ true);
+
+  std::cout << table << std::endl;
+}
+```
+
+```text
+┌──────┬──────┐
+│ col1 │ col2 │
+├──────┼──────┤
+│ val1 │ val2 │
+└──────┴──────┘
+```
+
+A second argument picks one of three common `BorderStyle`s (`Light` is the default):
+
+```cpp
+table.use_unicode_borders(true, BorderStyle::Heavy);
+```
+```text
+┏━━━━━━┳━━━━━━┓
+┃ col1 ┃ col2 ┃
+┣━━━━━━╋━━━━━━┫
+┃ val1 ┃ val2 ┃
+┗━━━━━━┻━━━━━━┛
+```
+
+```cpp
+table.use_unicode_borders(true, BorderStyle::Double);
+```
+```text
+╔══════╦══════╗
+║ col1 ║ col2 ║
+╠══════╬══════╣
+║ val1 ║ val2 ║
+╚══════╩══════╝
+```
 
 ### Range-based Iteration
 
