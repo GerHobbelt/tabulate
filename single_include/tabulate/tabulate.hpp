@@ -6529,6 +6529,14 @@ public:
     return *this;
   }
 
+  Format &border_style(const std::vector<FontStyle> &value) {
+    border_left_style_ = value;
+    border_right_style_ = value;
+    border_top_style_ = value;
+    border_bottom_style_ = value;
+    return *this;
+  }
+
   Format &border_left(const std::string &value) {
     border_left_ = value;
     return *this;
@@ -6541,6 +6549,11 @@ public:
 
   Format &border_left_background_color(Color value) {
     border_left_background_color_ = value;
+    return *this;
+  }
+
+  Format &border_left_style(const std::vector<FontStyle> &value) {
+    border_left_style_ = value;
     return *this;
   }
 
@@ -6559,6 +6572,11 @@ public:
     return *this;
   }
 
+  Format &border_right_style(const std::vector<FontStyle> &value) {
+    border_right_style_ = value;
+    return *this;
+  }
+
   Format &border_top(const std::string &value) {
     border_top_ = value;
     return *this;
@@ -6574,6 +6592,11 @@ public:
     return *this;
   }
 
+  Format &border_top_style(const std::vector<FontStyle> &value) {
+    border_top_style_ = value;
+    return *this;
+  }
+
   Format &border_bottom(const std::string &value) {
     border_bottom_ = value;
     return *this;
@@ -6586,6 +6609,11 @@ public:
 
   Format &border_bottom_background_color(Color value) {
     border_bottom_background_color_ = value;
+    return *this;
+  }
+
+  Format &border_bottom_style(const std::vector<FontStyle> &value) {
+    border_bottom_style_ = value;
     return *this;
   }
 
@@ -6675,6 +6703,14 @@ public:
     return *this;
   }
 
+  Format &corner_style(const std::vector<FontStyle> &value) {
+    corner_top_left_style_ = value;
+    corner_top_right_style_ = value;
+    corner_bottom_left_style_ = value;
+    corner_bottom_right_style_ = value;
+    return *this;
+  }
+
   Format &corner_top_left(const std::string &value) {
     corner_top_left_ = value;
     return *this;
@@ -6687,6 +6723,11 @@ public:
 
   Format &corner_top_left_background_color(Color value) {
     corner_top_left_background_color_ = value;
+    return *this;
+  }
+
+  Format &corner_top_left_style(const std::vector<FontStyle> &value) {
+    corner_top_left_style_ = value;
     return *this;
   }
 
@@ -6705,6 +6746,11 @@ public:
     return *this;
   }
 
+  Format &corner_top_right_style(const std::vector<FontStyle> &value) {
+    corner_top_right_style_ = value;
+    return *this;
+  }
+
   Format &corner_bottom_left(const std::string &value) {
     corner_bottom_left_ = value;
     return *this;
@@ -6720,6 +6766,11 @@ public:
     return *this;
   }
 
+  Format &corner_bottom_left_style(const std::vector<FontStyle> &value) {
+    corner_bottom_left_style_ = value;
+    return *this;
+  }
+
   Format &corner_bottom_right(const std::string &value) {
     corner_bottom_right_ = value;
     return *this;
@@ -6732,6 +6783,11 @@ public:
 
   Format &corner_bottom_right_background_color(Color value) {
     corner_bottom_right_background_color_ = value;
+    return *this;
+  }
+
+  Format &corner_bottom_right_style(const std::vector<FontStyle> &value) {
+    corner_bottom_right_style_ = value;
     return *this;
   }
 
@@ -6870,6 +6926,75 @@ public:
     return result;
   };
 
+  // Clears every field in `target` that is still identical to `previous`.
+  //
+  // Row/Cell cache their effective format by merging their own overrides with
+  // their parent's format. That cache must not freeze fields the caller never
+  // explicitly overrode, or later changes to an ancestor's format (e.g.
+  // table.format().hide_border_bottom() after printing once) would be
+  // silently ignored. Before re-merging, this resets any field that still
+  // matches the snapshot taken at the last merge, so unmodified fields go
+  // back to tracking the parent while explicit overrides are preserved.
+  static void reset_inherited_fields(Format &target, const Format &previous) {
+#define TABULATE_RESET_IF_UNCHANGED(field)                                                       \
+    if (target.field == previous.field)                                                         \
+    target.field.reset()
+    TABULATE_RESET_IF_UNCHANGED(width_);
+    TABULATE_RESET_IF_UNCHANGED(height_);
+    TABULATE_RESET_IF_UNCHANGED(font_align_);
+    TABULATE_RESET_IF_UNCHANGED(font_style_);
+    TABULATE_RESET_IF_UNCHANGED(font_color_);
+    TABULATE_RESET_IF_UNCHANGED(font_background_color_);
+    TABULATE_RESET_IF_UNCHANGED(padding_left_);
+    TABULATE_RESET_IF_UNCHANGED(padding_top_);
+    TABULATE_RESET_IF_UNCHANGED(padding_right_);
+    TABULATE_RESET_IF_UNCHANGED(padding_bottom_);
+    TABULATE_RESET_IF_UNCHANGED(border_left_);
+    TABULATE_RESET_IF_UNCHANGED(border_left_color_);
+    TABULATE_RESET_IF_UNCHANGED(border_left_background_color_);
+    TABULATE_RESET_IF_UNCHANGED(border_left_style_);
+    TABULATE_RESET_IF_UNCHANGED(border_top_);
+    TABULATE_RESET_IF_UNCHANGED(border_top_color_);
+    TABULATE_RESET_IF_UNCHANGED(border_top_background_color_);
+    TABULATE_RESET_IF_UNCHANGED(border_top_style_);
+    TABULATE_RESET_IF_UNCHANGED(border_bottom_);
+    TABULATE_RESET_IF_UNCHANGED(border_bottom_color_);
+    TABULATE_RESET_IF_UNCHANGED(border_bottom_background_color_);
+    TABULATE_RESET_IF_UNCHANGED(border_bottom_style_);
+    TABULATE_RESET_IF_UNCHANGED(border_right_);
+    TABULATE_RESET_IF_UNCHANGED(border_right_color_);
+    TABULATE_RESET_IF_UNCHANGED(border_right_background_color_);
+    TABULATE_RESET_IF_UNCHANGED(border_right_style_);
+    TABULATE_RESET_IF_UNCHANGED(show_border_top_);
+    TABULATE_RESET_IF_UNCHANGED(show_border_bottom_);
+    TABULATE_RESET_IF_UNCHANGED(show_border_left_);
+    TABULATE_RESET_IF_UNCHANGED(show_border_right_);
+    TABULATE_RESET_IF_UNCHANGED(corner_top_left_);
+    TABULATE_RESET_IF_UNCHANGED(corner_top_left_color_);
+    TABULATE_RESET_IF_UNCHANGED(corner_top_left_background_color_);
+    TABULATE_RESET_IF_UNCHANGED(corner_top_left_style_);
+    TABULATE_RESET_IF_UNCHANGED(corner_top_right_);
+    TABULATE_RESET_IF_UNCHANGED(corner_top_right_color_);
+    TABULATE_RESET_IF_UNCHANGED(corner_top_right_background_color_);
+    TABULATE_RESET_IF_UNCHANGED(corner_top_right_style_);
+    TABULATE_RESET_IF_UNCHANGED(corner_bottom_left_);
+    TABULATE_RESET_IF_UNCHANGED(corner_bottom_left_color_);
+    TABULATE_RESET_IF_UNCHANGED(corner_bottom_left_background_color_);
+    TABULATE_RESET_IF_UNCHANGED(corner_bottom_left_style_);
+    TABULATE_RESET_IF_UNCHANGED(corner_bottom_right_);
+    TABULATE_RESET_IF_UNCHANGED(corner_bottom_right_color_);
+    TABULATE_RESET_IF_UNCHANGED(corner_bottom_right_background_color_);
+    TABULATE_RESET_IF_UNCHANGED(corner_bottom_right_style_);
+    TABULATE_RESET_IF_UNCHANGED(column_separator_);
+    TABULATE_RESET_IF_UNCHANGED(column_separator_color_);
+    TABULATE_RESET_IF_UNCHANGED(column_separator_background_color_);
+    TABULATE_RESET_IF_UNCHANGED(multi_byte_characters_);
+    TABULATE_RESET_IF_UNCHANGED(locale_);
+    TABULATE_RESET_IF_UNCHANGED(trim_mode_);
+    TABULATE_RESET_IF_UNCHANGED(show_row_separator_);
+#undef TABULATE_RESET_IF_UNCHANGED
+  }
+
   // Merge two formats
   // first has higher precedence
   // e.g., first = cell-level formatting and
@@ -6959,6 +7084,11 @@ public:
     else
       result.border_left_background_color_ = second.border_left_background_color_;
 
+    if (first.border_left_style_.has_value())
+      result.border_left_style_ = first.border_left_style_;
+    else
+      result.border_left_style_ = second.border_left_style_;
+
     if (first.border_top_.has_value())
       result.border_top_ = first.border_top_;
     else
@@ -6973,6 +7103,11 @@ public:
       result.border_top_background_color_ = first.border_top_background_color_;
     else
       result.border_top_background_color_ = second.border_top_background_color_;
+
+    if (first.border_top_style_.has_value())
+      result.border_top_style_ = first.border_top_style_;
+    else
+      result.border_top_style_ = second.border_top_style_;
 
     if (first.border_bottom_.has_value())
       result.border_bottom_ = first.border_bottom_;
@@ -6989,6 +7124,11 @@ public:
     else
       result.border_bottom_background_color_ = second.border_bottom_background_color_;
 
+    if (first.border_bottom_style_.has_value())
+      result.border_bottom_style_ = first.border_bottom_style_;
+    else
+      result.border_bottom_style_ = second.border_bottom_style_;
+
     if (first.border_right_.has_value())
       result.border_right_ = first.border_right_;
     else
@@ -7003,6 +7143,11 @@ public:
       result.border_right_background_color_ = first.border_right_background_color_;
     else
       result.border_right_background_color_ = second.border_right_background_color_;
+
+    if (first.border_right_style_.has_value())
+      result.border_right_style_ = first.border_right_style_;
+    else
+      result.border_right_style_ = second.border_right_style_;
 
     if (first.show_border_top_.has_value())
       result.show_border_top_ = first.show_border_top_;
@@ -7040,6 +7185,11 @@ public:
     else
       result.corner_top_left_background_color_ = second.corner_top_left_background_color_;
 
+    if (first.corner_top_left_style_.has_value())
+      result.corner_top_left_style_ = first.corner_top_left_style_;
+    else
+      result.corner_top_left_style_ = second.corner_top_left_style_;
+
     if (first.corner_top_right_.has_value())
       result.corner_top_right_ = first.corner_top_right_;
     else
@@ -7054,6 +7204,11 @@ public:
       result.corner_top_right_background_color_ = first.corner_top_right_background_color_;
     else
       result.corner_top_right_background_color_ = second.corner_top_right_background_color_;
+
+    if (first.corner_top_right_style_.has_value())
+      result.corner_top_right_style_ = first.corner_top_right_style_;
+    else
+      result.corner_top_right_style_ = second.corner_top_right_style_;
 
     if (first.corner_bottom_left_.has_value())
       result.corner_bottom_left_ = first.corner_bottom_left_;
@@ -7070,6 +7225,11 @@ public:
     else
       result.corner_bottom_left_background_color_ = second.corner_bottom_left_background_color_;
 
+    if (first.corner_bottom_left_style_.has_value())
+      result.corner_bottom_left_style_ = first.corner_bottom_left_style_;
+    else
+      result.corner_bottom_left_style_ = second.corner_bottom_left_style_;
+
     if (first.corner_bottom_right_.has_value())
       result.corner_bottom_right_ = first.corner_bottom_right_;
     else
@@ -7084,6 +7244,11 @@ public:
       result.corner_bottom_right_background_color_ = first.corner_bottom_right_background_color_;
     else
       result.corner_bottom_right_background_color_ = second.corner_bottom_right_background_color_;
+
+    if (first.corner_bottom_right_style_.has_value())
+      result.corner_bottom_right_style_ = first.corner_bottom_right_style_;
+    else
+      result.corner_bottom_right_style_ = second.corner_bottom_right_style_;
 
     if (first.column_separator_.has_value())
       result.column_separator_ = first.column_separator_;
@@ -7147,11 +7312,15 @@ private:
     border_top_color_ = border_top_background_color_ = border_bottom_color_ =
         border_bottom_background_color_ = border_left_color_ = border_left_background_color_ =
             border_right_color_ = border_right_background_color_ = Color::none;
+    border_top_style_ = border_bottom_style_ = border_left_style_ = border_right_style_ =
+        std::vector<FontStyle>{};
     corner_top_left_ = corner_top_right_ = corner_bottom_left_ = corner_bottom_right_ = "+";
     corner_top_left_color_ = corner_top_left_background_color_ = corner_top_right_color_ =
         corner_top_right_background_color_ = corner_bottom_left_color_ =
             corner_bottom_left_background_color_ = corner_bottom_right_color_ =
                 corner_bottom_right_background_color_ = Color::none;
+    corner_top_left_style_ = corner_top_right_style_ = corner_bottom_left_style_ =
+        corner_bottom_right_style_ = std::vector<FontStyle>{};
     column_separator_ = "|";
     column_separator_color_ = column_separator_background_color_ = Color::none;
     multi_byte_characters_ = false;
@@ -7248,38 +7417,46 @@ private:
   optional<std::string> border_top_{};
   optional<Color> border_top_color_{};
   optional<Color> border_top_background_color_{};
+  optional<std::vector<FontStyle>> border_top_style_{};
 
   optional<bool> show_border_bottom_{};
   optional<std::string> border_bottom_{};
   optional<Color> border_bottom_color_{};
   optional<Color> border_bottom_background_color_{};
+  optional<std::vector<FontStyle>> border_bottom_style_{};
 
   optional<bool> show_border_left_{};
   optional<std::string> border_left_{};
   optional<Color> border_left_color_{};
   optional<Color> border_left_background_color_{};
+  optional<std::vector<FontStyle>> border_left_style_{};
 
   optional<bool> show_border_right_{};
   optional<std::string> border_right_{};
   optional<Color> border_right_color_{};
   optional<Color> border_right_background_color_{};
+  optional<std::vector<FontStyle>> border_right_style_{};
 
   // Element corner
   optional<std::string> corner_top_left_{};
   optional<Color> corner_top_left_color_{};
   optional<Color> corner_top_left_background_color_{};
+  optional<std::vector<FontStyle>> corner_top_left_style_{};
 
   optional<std::string> corner_top_right_{};
   optional<Color> corner_top_right_color_{};
   optional<Color> corner_top_right_background_color_{};
+  optional<std::vector<FontStyle>> corner_top_right_style_{};
 
   optional<std::string> corner_bottom_left_{};
   optional<Color> corner_bottom_left_color_{};
   optional<Color> corner_bottom_left_background_color_{};
+  optional<std::vector<FontStyle>> corner_bottom_left_style_{};
 
   optional<std::string> corner_bottom_right_{};
   optional<Color> corner_bottom_right_color_{};
   optional<Color> corner_bottom_right_background_color_{};
+  optional<std::vector<FontStyle>> corner_bottom_right_style_{};
 
   // Element column separator
   optional<std::string> column_separator_{};
@@ -7333,6 +7510,7 @@ private:
   std::string data_;
   std::weak_ptr<class Row> parent_;
   optional<Format> format_;
+  optional<Format> parent_format_snapshot_;
 };
 
 } // namespace tabulate
@@ -7527,6 +7705,7 @@ private:
   std::vector<std::shared_ptr<Cell>> cells_;
   std::weak_ptr<class TableInternal> parent_;
   optional<Format> format_;
+  optional<Format> parent_format_snapshot_;
 };
 
 } // namespace tabulate
@@ -8390,13 +8569,12 @@ private:
 
 inline Format &Cell::format() {
   std::shared_ptr<Row> parent = parent_.lock();
-  if (!format_.has_value()) {   // no cell format
-    format_ = parent->format(); // Use parent row format
-  } else {
-    // Cell has formatting
-    // Merge cell formatting with parent row formatting
-    format_ = Format::merge(*format_, parent->format());
-  }
+  Format parent_format = parent->format();
+  if (format_.has_value() && parent_format_snapshot_.has_value())
+    // Let fields nobody explicitly overrode here track the parent's latest format.
+    Format::reset_inherited_fields(*format_, *parent_format_snapshot_);
+  format_ = Format::merge(format_.has_value() ? *format_ : Format(), parent_format);
+  parent_format_snapshot_ = parent_format;
   return *format_;
 }
 
@@ -8406,13 +8584,12 @@ inline bool Cell::is_multi_byte_character_support_enabled() {
 
 inline Format &Row::format() {
   std::shared_ptr<TableInternal> parent = parent_.lock();
-  if (!format_.has_value()) {   // no row format
-    format_ = parent->format(); // Use parent table format
-  } else {
-    // Row has formatting rules
-    // Merge with parent table format
-    format_ = Format::merge(*format_, parent->format());
-  }
+  Format parent_format = parent->format();
+  if (format_.has_value() && parent_format_snapshot_.has_value())
+    // Let fields nobody explicitly overrode here track the parent's latest format.
+    Format::reset_inherited_fields(*format_, *parent_format_snapshot_);
+  format_ = Format::merge(format_.has_value() ? *format_ : Format(), parent_format);
+  parent_format_snapshot_ = parent_format;
   return *format_;
 }
 
@@ -8569,7 +8746,7 @@ inline void Printer::print_row_in_cell(std::ostream &stream, TableInternal &tabl
 
   if (*format.show_border_left_) {
     apply_element_style(stream, *format.border_left_color_, *format.border_left_background_color_,
-                        {});
+                        *format.border_left_style_);
     stream << *format.border_left_;
     reset_element_style(stream);
   } else {
@@ -8642,7 +8819,7 @@ inline void Printer::print_row_in_cell(std::ostream &stream, TableInternal &tabl
     // Print right border after last column
     if (*format.show_border_right_) {
       apply_element_style(stream, *format.border_right_color_,
-                          *format.border_right_background_color_, {});
+                          *format.border_right_background_color_, *format.border_right_style_);
       stream << *format.border_right_;
       reset_element_style(stream);
     } else {
@@ -8665,13 +8842,14 @@ inline bool Printer::print_cell_border_top(std::ostream &stream, TableInternal &
   auto corner = *format.corner_top_left_;
   auto corner_color = *format.corner_top_left_color_;
   auto corner_background_color = *format.corner_top_left_background_color_;
+  auto corner_style = *format.corner_top_left_style_;
   auto border_top = *format.border_top_;
 
   if ((corner == "" && border_top == "") || !*format.show_border_top_) {
     return false;
   }
 
-  apply_element_style(stream, corner_color, corner_background_color, {});
+  apply_element_style(stream, corner_color, corner_background_color, corner_style);
   if (*format.show_row_separator_) {
     if (index.first != 0)
       stream << corner;
@@ -8684,7 +8862,7 @@ inline bool Printer::print_cell_border_top(std::ostream &stream, TableInternal &
 
   for (size_t i = 0; i < column_width; ++i) {
     apply_element_style(stream, *format.border_top_color_, *format.border_top_background_color_,
-                        {});
+                        *format.border_top_style_);
     if (*format.show_row_separator_) {
       if (index.first != 0)
         stream << border_top;
@@ -8700,8 +8878,9 @@ inline bool Printer::print_cell_border_top(std::ostream &stream, TableInternal &
     corner = *format.corner_top_right_;
     corner_color = *format.corner_top_right_color_;
     corner_background_color = *format.corner_top_right_background_color_;
+    corner_style = *format.corner_top_right_style_;
 
-    apply_element_style(stream, corner_color, corner_background_color, {});
+    apply_element_style(stream, corner_color, corner_background_color, corner_style);
     if (*format.show_row_separator_) {
       if (index.first != 0)
         stream << corner;
@@ -8726,19 +8905,20 @@ inline bool Printer::print_cell_border_bottom(std::ostream &stream, TableInterna
   auto corner = *format.corner_bottom_left_;
   auto corner_color = *format.corner_bottom_left_color_;
   auto corner_background_color = *format.corner_bottom_left_background_color_;
+  auto corner_style = *format.corner_bottom_left_style_;
   auto border_bottom = *format.border_bottom_;
 
   if ((corner == "" && border_bottom == "") || !*format.show_border_bottom_) {
     return false;
   }
 
-  apply_element_style(stream, corner_color, corner_background_color, {});
+  apply_element_style(stream, corner_color, corner_background_color, corner_style);
   stream << corner;
   reset_element_style(stream);
 
   for (size_t i = 0; i < column_width; ++i) {
     apply_element_style(stream, *format.border_bottom_color_,
-                        *format.border_bottom_background_color_, {});
+                        *format.border_bottom_background_color_, *format.border_bottom_style_);
     stream << border_bottom;
     reset_element_style(stream);
   }
@@ -8748,8 +8928,9 @@ inline bool Printer::print_cell_border_bottom(std::ostream &stream, TableInterna
     corner = *format.corner_bottom_right_;
     corner_color = *format.corner_bottom_right_color_;
     corner_background_color = *format.corner_bottom_right_background_color_;
+    corner_style = *format.corner_bottom_right_style_;
 
-    apply_element_style(stream, corner_color, corner_background_color, {});
+    apply_element_style(stream, corner_color, corner_background_color, corner_style);
     stream << corner;
     reset_element_style(stream);
   }
@@ -8815,6 +8996,9 @@ using nonstd::visit;
 
 namespace tabulate {
 
+// Unicode box-drawing glyph sets, for use with Table::use_unicode_borders().
+enum class BorderStyle { Light, Heavy, Double };
+
 class Table {
 public:
   Table() : table_(TableInternal::create()) {}
@@ -8879,6 +9063,77 @@ public:
     table_->erase_column(index);
     if (cols_ > 0)
       cols_ -= 1;
+    return *this;
+  }
+
+  // Configures clean Unicode box-drawing borders/corners instead of the
+  // default ASCII "+"/"-"/"|", in one of the common box-drawing weights
+  // (BorderStyle::Light "┌─┬─┐", ::Heavy "┏━┳━┓", or ::Double "╔═╦═╗").
+  // With show_row_separators = false (the default), only the outer box is
+  // drawn; with true, every row boundary gets the matching T-junction/cross
+  // characters too.
+  Table &use_unicode_borders(bool show_row_separators = false, BorderStyle style = BorderStyle::Light) {
+    struct Glyphs {
+      const char *horizontal;
+      const char *vertical;
+      const char *top_left, *top_mid, *top_right;
+      const char *mid_left, *mid_mid, *mid_right;
+      const char *bottom_left, *bottom_mid, *bottom_right;
+    };
+
+    Glyphs glyphs;
+    switch (style) {
+    case BorderStyle::Heavy:
+      glyphs = {"\u2501", "\u2503", "\u250f", "\u2533", "\u2513",
+                "\u2523", "\u254b", "\u252b", "\u2517", "\u253b", "\u251b"};
+      break;
+    case BorderStyle::Double:
+      glyphs = {"\u2550", "\u2551", "\u2554", "\u2566", "\u2557",
+                "\u2560", "\u256c", "\u2563", "\u255a", "\u2569", "\u255d"};
+      break;
+    case BorderStyle::Light:
+    default:
+      glyphs = {"\u2500", "\u2502", "\u250c", "\u252c", "\u2510",
+                "\u251c", "\u253c", "\u2524", "\u2514", "\u2534", "\u2518"};
+      break;
+    }
+
+    format()
+        .border_left(glyphs.vertical)
+        .border_right(glyphs.vertical)
+        .border_top(glyphs.horizontal)
+        .border_bottom(glyphs.horizontal);
+
+    size_t num_rows = size();
+    for (size_t i = 0; i < num_rows; ++i) {
+      Row &r = row(i);
+      size_t num_cols = r.size();
+      bool is_first_row = (i == 0);
+      bool is_last_row = (i + 1 == num_rows);
+      for (size_t j = 0; j < num_cols; ++j) {
+        bool is_first_col = (j == 0);
+        bool is_last_col = (j + 1 == num_cols);
+        Cell &cell = r[j];
+
+        if (is_first_row) {
+          cell.format().corner_top_left(is_first_col ? glyphs.top_left : glyphs.top_mid);
+          if (is_last_col)
+            cell.format().corner_top_right(glyphs.top_right);
+        } else if (show_row_separators) {
+          cell.format().corner_top_left(is_first_col ? glyphs.mid_left : glyphs.mid_mid);
+          if (is_last_col)
+            cell.format().corner_top_right(glyphs.mid_right);
+        } else {
+          cell.format().hide_border_top();
+        }
+
+        if (is_last_row) {
+          cell.format().corner_bottom_left(is_first_col ? glyphs.bottom_left : glyphs.bottom_mid);
+          if (is_last_col)
+            cell.format().corner_bottom_right(glyphs.bottom_right);
+        }
+      }
+    }
     return *this;
   }
 
