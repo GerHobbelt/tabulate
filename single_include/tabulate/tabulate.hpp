@@ -6585,6 +6585,14 @@ public:
     return *this;
   }
 
+  // Number of spaces to prepend to every line of the rendered table. Only
+  // consulted on the table's own format (table.format().indent(n)); row- and
+  // cell-level values have no effect.
+  Format &indent(size_t value) {
+    indent_ = value;
+    return *this;
+  }
+
   Format &height(size_t value) {
     height_ = value;
     return *this;
@@ -6991,11 +6999,10 @@ public:
 
     for (size_t i = 0; i < words.size(); ++i) {
       std::string word = words[i];
+      auto word_length = get_sequence_length(word, locale, is_multi_byte_character_support_enabled);
       // If adding the new word to the current line would be too long,
       // then put it on a new line (and split it up if it's too long).
-      if (current_line_length +
-              get_sequence_length(word, locale, is_multi_byte_character_support_enabled) >
-          width) {
+      if (current_line_length + word_length > width) {
         // Only move down to a new line if we have text on the current line.
         // Avoids situation where wrapped whitespace causes emptylines in text.
         if (current_line_length > 0) {
@@ -7005,7 +7012,7 @@ public:
 
         // If the current word is too long to fit on a line even on it's own
         // then split the word up.
-        while (get_sequence_length(word, locale, is_multi_byte_character_support_enabled) > width) {
+        while (word_length > width) {
           // Split on a character boundary, not a byte offset, so multi-byte
           // sequences (e.g. CJK text) aren't cut in half.
           auto split_at = byte_offset_for_width(word, locale, is_multi_byte_character_support_enabled,
@@ -7013,15 +7020,16 @@ public:
           result += word.substr(0, split_at) + "-";
           word = word.substr(split_at);
           result += '\n';
+          word_length = get_sequence_length(word, locale, is_multi_byte_character_support_enabled);
         }
 
         // Remove leading whitespace from the word so the new line starts flush
         // to the left.
         word = trim_left(word);
+        word_length = get_sequence_length(word, locale, is_multi_byte_character_support_enabled);
       }
       result += word;
-      current_line_length +=
-          get_sequence_length(word, locale, is_multi_byte_character_support_enabled);
+      current_line_length += word_length;
     }
     return result;
   }
@@ -7057,6 +7065,7 @@ public:
     if (target.field == previous.field)                                                         \
     target.field.reset()
     TABULATE_RESET_IF_UNCHANGED(width_);
+    TABULATE_RESET_IF_UNCHANGED(indent_);
     TABULATE_RESET_IF_UNCHANGED(height_);
     TABULATE_RESET_IF_UNCHANGED(font_align_);
     TABULATE_RESET_IF_UNCHANGED(font_style_);
@@ -7112,6 +7121,76 @@ public:
 #undef TABULATE_RESET_IF_UNCHANGED
   }
 
+public:
+  // Lets Row/Cell::format() cheaply detect "did the parent's format actually
+  // change since my last merge?" and skip re-merging (which touches every
+  // field) when it didn't -- the common case when printing a table more
+  // than once, or rendering the same cell multiple times within one print.
+  // Short-circuits on the first differing field, same as reset_inherited_fields.
+  bool operator==(const Format &other) const {
+    bool result = true;
+#define TABULATE_FIELD_EQUAL(field) result = result && (field == other.field)
+    TABULATE_FIELD_EQUAL(width_);
+    TABULATE_FIELD_EQUAL(indent_);
+    TABULATE_FIELD_EQUAL(height_);
+    TABULATE_FIELD_EQUAL(font_align_);
+    TABULATE_FIELD_EQUAL(font_style_);
+    TABULATE_FIELD_EQUAL(font_color_);
+    TABULATE_FIELD_EQUAL(font_background_color_);
+    TABULATE_FIELD_EQUAL(padding_left_);
+    TABULATE_FIELD_EQUAL(padding_top_);
+    TABULATE_FIELD_EQUAL(padding_right_);
+    TABULATE_FIELD_EQUAL(padding_bottom_);
+    TABULATE_FIELD_EQUAL(border_left_);
+    TABULATE_FIELD_EQUAL(border_left_color_);
+    TABULATE_FIELD_EQUAL(border_left_background_color_);
+    TABULATE_FIELD_EQUAL(border_left_style_);
+    TABULATE_FIELD_EQUAL(border_top_);
+    TABULATE_FIELD_EQUAL(border_top_color_);
+    TABULATE_FIELD_EQUAL(border_top_background_color_);
+    TABULATE_FIELD_EQUAL(border_top_style_);
+    TABULATE_FIELD_EQUAL(border_bottom_);
+    TABULATE_FIELD_EQUAL(border_bottom_color_);
+    TABULATE_FIELD_EQUAL(border_bottom_background_color_);
+    TABULATE_FIELD_EQUAL(border_bottom_style_);
+    TABULATE_FIELD_EQUAL(border_right_);
+    TABULATE_FIELD_EQUAL(border_right_color_);
+    TABULATE_FIELD_EQUAL(border_right_background_color_);
+    TABULATE_FIELD_EQUAL(border_right_style_);
+    TABULATE_FIELD_EQUAL(show_border_top_);
+    TABULATE_FIELD_EQUAL(show_border_bottom_);
+    TABULATE_FIELD_EQUAL(show_border_left_);
+    TABULATE_FIELD_EQUAL(show_border_right_);
+    TABULATE_FIELD_EQUAL(corner_top_left_);
+    TABULATE_FIELD_EQUAL(corner_top_left_color_);
+    TABULATE_FIELD_EQUAL(corner_top_left_background_color_);
+    TABULATE_FIELD_EQUAL(corner_top_left_style_);
+    TABULATE_FIELD_EQUAL(corner_top_right_);
+    TABULATE_FIELD_EQUAL(corner_top_right_color_);
+    TABULATE_FIELD_EQUAL(corner_top_right_background_color_);
+    TABULATE_FIELD_EQUAL(corner_top_right_style_);
+    TABULATE_FIELD_EQUAL(corner_bottom_left_);
+    TABULATE_FIELD_EQUAL(corner_bottom_left_color_);
+    TABULATE_FIELD_EQUAL(corner_bottom_left_background_color_);
+    TABULATE_FIELD_EQUAL(corner_bottom_left_style_);
+    TABULATE_FIELD_EQUAL(corner_bottom_right_);
+    TABULATE_FIELD_EQUAL(corner_bottom_right_color_);
+    TABULATE_FIELD_EQUAL(corner_bottom_right_background_color_);
+    TABULATE_FIELD_EQUAL(corner_bottom_right_style_);
+    TABULATE_FIELD_EQUAL(column_separator_);
+    TABULATE_FIELD_EQUAL(column_separator_color_);
+    TABULATE_FIELD_EQUAL(column_separator_background_color_);
+    TABULATE_FIELD_EQUAL(multi_byte_characters_);
+    TABULATE_FIELD_EQUAL(locale_);
+    TABULATE_FIELD_EQUAL(trim_mode_);
+    TABULATE_FIELD_EQUAL(show_row_separator_);
+#undef TABULATE_FIELD_EQUAL
+    return result;
+  }
+
+  bool operator!=(const Format &other) const { return !(*this == other); }
+
+private:
   // Merge two formats
   // first has higher precedence
   // e.g., first = cell-level formatting and
@@ -7126,6 +7205,11 @@ public:
       result.width_ = first.width_;
     else
       result.width_ = second.width_;
+
+    if (first.indent_.has_value())
+      result.indent_ = first.indent_;
+    else
+      result.indent_ = second.indent_;
 
     if (first.height_.has_value())
       result.height_ = first.height_;
@@ -7418,6 +7502,7 @@ private:
 
   void set_defaults() {
     // NOTE: width and height are not set here
+    indent_ = 0;
     font_align_ = FontAlign::left;
     font_style_ = std::vector<FontStyle>{};
     font_color_ = font_background_color_ = Color::none;
@@ -7473,16 +7558,18 @@ private:
 
   static size_t index_of_any(const std::string &input, size_t start_index,
                              const std::vector<std::string> &split_characters) {
-    std::vector<size_t> indices{};
-    for (auto &c : split_characters) {
-      auto index = input.find(c, start_index);
-      if (index != std::string::npos)
-        indices.push_back(index);
-    }
-    if (indices.size() > 0)
-      return *std::min_element(indices.begin(), indices.end());
-    else
-      return std::string::npos;
+    // Single-pass scan for any of the (single-character) delimiters, instead
+    // of a separate input.find() per delimiter. The old approach meant any
+    // delimiter that doesn't occur again before the end of the string (e.g.
+    // no more '-' or '\t' in typical prose) scanned the *entire* remainder of
+    // the string on every call, making word-wrap's caller (explode_string)
+    // effectively quadratic in input length.
+    std::string delimiters;
+    delimiters.reserve(split_characters.size());
+    for (auto &c : split_characters)
+      if (!c.empty())
+        delimiters += c[0];
+    return input.find_first_of(delimiters, start_index);
   }
 
   static std::vector<std::string> explode_string(const std::string &input,
@@ -7515,6 +7602,7 @@ private:
 
   // Element width and height
   optional<size_t> width_{};
+  optional<size_t> indent_{};
   optional<size_t> height_{};
 
   // Font styling
@@ -8364,6 +8452,12 @@ public:
   static std::pair<std::vector<size_t>, std::vector<size_t>>
   compute_cell_dimensions(TableInternal &table);
 
+  // Word-wraps and splits a cell's text into the lines that will be printed,
+  // given the column width it will be rendered at. Shared by print_table()
+  // and TableInternal::print_row() so incremental, per-row printing applies
+  // the exact same word-wrapping as a full print.
+  static std::vector<std::string> split_cell_text(Cell &cell, size_t column_width);
+
   static void print_table(std::ostream &stream, TableInternal &table);
 
   static void print_row_in_cell(std::ostream &stream, TableInternal &table,
@@ -8406,9 +8500,7 @@ private:
     apply_element_style(stream, *format.font_color_, *format.font_background_color_, {});
 
     if (text_with_padding_size < column_width) {
-      for (size_t j = 0; j < (column_width - text_with_padding_size); ++j) {
-        stream << " ";
-      }
+      stream << std::string(column_width - text_with_padding_size, ' ');
     }
   }
 
@@ -8418,8 +8510,7 @@ private:
     auto num_spaces = column_width - text_with_padding_size;
     if (num_spaces % 2 == 0) {
       // Even spacing on either side
-      for (size_t j = 0; j < num_spaces / 2; ++j)
-        stream << " ";
+      stream << std::string(num_spaces / 2, ' ');
 
       // Apply font style
       apply_element_style(stream, *format.font_color_, *format.font_background_color_,
@@ -8430,12 +8521,10 @@ private:
       reset_element_style(stream);
       apply_element_style(stream, *format.font_color_, *format.font_background_color_, {});
 
-      for (size_t j = 0; j < num_spaces / 2; ++j)
-        stream << " ";
+      stream << std::string(num_spaces / 2, ' ');
     } else {
       auto num_spaces_before = num_spaces / 2 + 1;
-      for (size_t j = 0; j < num_spaces_before; ++j)
-        stream << " ";
+      stream << std::string(num_spaces_before, ' ');
 
       // Apply font style
       apply_element_style(stream, *format.font_color_, *format.font_background_color_,
@@ -8446,8 +8535,7 @@ private:
       reset_element_style(stream);
       apply_element_style(stream, *format.font_color_, *format.font_background_color_, {});
 
-      for (size_t j = 0; j < num_spaces - num_spaces_before; ++j)
-        stream << " ";
+      stream << std::string(num_spaces - num_spaces_before, ' ');
     }
   }
 
@@ -8455,9 +8543,7 @@ private:
                                           const Format &format, size_t text_with_padding_size,
                                           size_t column_width) {
     if (text_with_padding_size < column_width) {
-      for (size_t j = 0; j < (column_width - text_with_padding_size); ++j) {
-        stream << " ";
-      }
+      stream << std::string(column_width - text_with_padding_size, ' ');
     }
 
     // Apply font style
@@ -8684,6 +8770,61 @@ public:
 
   void print(std::ostream &stream) { Printer::print_table(stream, *this); }
 
+  // Prints one row (its own top border, acting as a separator, plus content)
+  // without the table's closing bottom border, so rows can be streamed to a
+  // terminal/log as add_row() is called instead of printing the whole table
+  // once at the end. Call print_bottom_border() once after the last row.
+  //
+  // Column widths are only stable across separate print_row() calls if
+  // fixed up front via column(i).format().width(n); otherwise a later, wider
+  // row can retroactively invalidate the alignment of rows already printed.
+  void print_row(std::ostream &stream, size_t row_index) {
+    auto dimensions = Printer::compute_cell_dimensions(*this);
+    auto &row_heights = dimensions.first;
+    auto &column_widths = dimensions.second;
+    size_t num_columns = estimate_num_columns();
+
+    Row &row = operator[](row_index);
+    std::vector<std::vector<std::string>> splitted_cells_text(num_columns);
+    for (size_t j = 0; j < num_columns; ++j) {
+      Cell &cell = row.cell(j);
+      splitted_cells_text[j] = Printer::split_cell_text(cell, column_widths[j]);
+    }
+
+    bool border_top_printed = true;
+    for (size_t j = 0; j < num_columns; ++j) {
+      border_top_printed &= Printer::print_cell_border_top(
+          stream, *this, {row_index, j}, {row_heights[row_index], column_widths[j]}, num_columns);
+    }
+    if (border_top_printed)
+      stream << termcolor::reset << "\n";
+
+    for (size_t k = 0; k < row_heights[row_index]; ++k) {
+      for (size_t j = 0; j < num_columns; ++j) {
+        Printer::print_row_in_cell(stream, *this, {row_index, j},
+                                   {row_heights[row_index], column_widths[j]}, num_columns, k,
+                                   splitted_cells_text[j]);
+      }
+      stream << termcolor::reset << "\n";
+    }
+  }
+
+  // Prints the table's closing bottom border, using the last row's format
+  // for the corner/border characters. Pair with print_row().
+  void print_bottom_border(std::ostream &stream) {
+    auto dimensions = Printer::compute_cell_dimensions(*this);
+    auto &row_heights = dimensions.first;
+    auto &column_widths = dimensions.second;
+    size_t num_columns = estimate_num_columns();
+    size_t last_row = size() - 1;
+
+    for (size_t j = 0; j < num_columns; ++j) {
+      Printer::print_cell_border_bottom(stream, *this, {last_row, j},
+                                        {row_heights[last_row], column_widths[j]}, num_columns);
+    }
+    stream << termcolor::reset << "\n";
+  }
+
   size_t estimate_num_columns() const {
     size_t result{0};
     if (size()) {
@@ -8708,9 +8849,14 @@ private:
 inline Format &Cell::format() {
   std::shared_ptr<Row> parent = parent_.lock();
   Format parent_format = parent->format();
-  if (format_.has_value() && parent_format_snapshot_.has_value())
+  if (format_.has_value() && parent_format_snapshot_.has_value()) {
+    if (parent_format == *parent_format_snapshot_)
+      // Nothing upstream changed since the last merge: the cached result is
+      // still correct, so skip the expensive field-by-field work below.
+      return *format_;
     // Let fields nobody explicitly overrode here track the parent's latest format.
     Format::reset_inherited_fields(*format_, *parent_format_snapshot_);
+  }
   format_ = Format::merge(format_.has_value() ? *format_ : Format(), parent_format);
   parent_format_snapshot_ = parent_format;
   return *format_;
@@ -8723,9 +8869,14 @@ inline bool Cell::is_multi_byte_character_support_enabled() {
 inline Format &Row::format() {
   std::shared_ptr<TableInternal> parent = parent_.lock();
   Format parent_format = parent->format();
-  if (format_.has_value() && parent_format_snapshot_.has_value())
+  if (format_.has_value() && parent_format_snapshot_.has_value()) {
+    if (parent_format == *parent_format_snapshot_)
+      // Nothing upstream changed since the last merge: the cached result is
+      // still correct, so skip the expensive field-by-field work below.
+      return *format_;
     // Let fields nobody explicitly overrode here track the parent's latest format.
     Format::reset_inherited_fields(*format_, *parent_format_snapshot_);
+  }
   format_ = Format::merge(format_.has_value() ? *format_ : Format(), parent_format);
   parent_format_snapshot_ = parent_format;
   return *format_;
@@ -8750,7 +8901,7 @@ Printer::compute_cell_dimensions(TableInternal &table) {
   }
 
   for (size_t i = 0; i < num_rows; ++i) {
-    Row row = table[i];
+    Row &row = table[i];
     size_t configured_height = row.get_configured_height();
     size_t computed_height = row.get_computed_height(column_widths);
 
@@ -8775,7 +8926,39 @@ Printer::compute_cell_dimensions(TableInternal &table) {
   return result;
 }
 
+inline std::vector<std::string> Printer::split_cell_text(Cell &cell, size_t column_width) {
+  const std::string &text = cell.get_text();
+  auto padding_left = *cell.format().padding_left_;
+  auto padding_right = *cell.format().padding_right_;
+
+  // Check if input text has embedded \n that are to be respected
+  bool has_new_line = text.find_first_of('\n') != std::string::npos;
+
+  if (has_new_line) {
+    // Respect to the embedded '\n' characters
+    return Format::split_lines(text, "\n", cell.locale(), cell.is_multi_byte_character_support_enabled());
+  }
+
+  // If there are no embedded \n characters, then apply word wrap.
+  //
+  // Configured column width cannot be lower than (padding_left +
+  // padding_right) This is a bad configuration E.g., the user is trying
+  // to force the column width to be 5 when padding_left and padding_right
+  // are each configured to 3 (padding_left + padding_right) = 6 >
+  // column_width
+  auto content_width = column_width > padding_left + padding_right ? column_width - padding_left - padding_right
+                                                                   : column_width;
+  auto word_wrapped_text = Format::word_wrap(text, content_width, cell.locale(),
+                                             cell.is_multi_byte_character_support_enabled());
+  return Format::split_lines(word_wrapped_text, "\n", cell.locale(),
+                             cell.is_multi_byte_character_support_enabled());
+}
+
 inline void Printer::print_table(std::ostream &stream, TableInternal &table) {
+  size_t indent = *table.format().indent_;
+  std::ostringstream buffer_stream;
+  std::ostream &stream_ref = indent == 0 ? stream : buffer_stream;
+
   size_t num_rows = table.size();
   size_t num_columns = table.estimate_num_columns();
   auto dimensions = compute_cell_dimensions(table);
@@ -8787,36 +8970,10 @@ inline void Printer::print_table(std::ostream &stream, TableInternal &table) {
   // Pre-compute the cells' content and split them into lines before actually
   // iterating the cells.
   for (size_t i = 0; i < num_rows; ++i) {
-    Row row = table[i];
+    Row &row = table[i];
     for (size_t j = 0; j < num_columns; ++j) {
-      Cell cell = row.cell(j);
-      const std::string &text = cell.get_text();
-      auto padding_left = *cell.format().padding_left_;
-      auto padding_right = *cell.format().padding_right_;
-
-      // Check if input text has embedded \n that are to be respected
-      bool has_new_line = text.find_first_of('\n') != std::string::npos;
-
-      if (has_new_line) {
-        // Respect to the embedded '\n' characters
-        splitted_cells_text[i][j] = Format::split_lines(
-            text, "\n", cell.locale(), cell.is_multi_byte_character_support_enabled());
-      } else {
-        // If there are no embedded \n characters, then apply word wrap.
-        //
-        // Configured column width cannot be lower than (padding_left +
-        // padding_right) This is a bad configuration E.g., the user is trying
-        // to force the column width to be 5 when padding_left and padding_right
-        // are each configured to 3 (padding_left + padding_right) = 6 >
-        // column_width
-        auto content_width = column_widths[j] > padding_left + padding_right
-                                 ? column_widths[j] - padding_left - padding_right
-                                 : column_widths[j];
-        auto word_wrapped_text = Format::word_wrap(text, content_width, cell.locale(),
-                                                   cell.is_multi_byte_character_support_enabled());
-        splitted_cells_text[i][j] = Format::split_lines(
-            word_wrapped_text, "\n", cell.locale(), cell.is_multi_byte_character_support_enabled());
-      }
+      Cell &cell = row.cell(j);
+      splitted_cells_text[i][j] = split_cell_text(cell, column_widths[j]);
     }
   }
 
@@ -8826,20 +8983,20 @@ inline void Printer::print_table(std::ostream &stream, TableInternal &table) {
     // Print top border
     bool border_top_printed{true};
     for (size_t j = 0; j < num_columns; ++j) {
-      border_top_printed &= print_cell_border_top(stream, table, {i, j},
+      border_top_printed &= print_cell_border_top(stream_ref, table, {i, j},
                                                   {row_heights[i], column_widths[j]}, num_columns);
     }
     if (border_top_printed)
-      stream << termcolor::reset << "\n";
+      stream_ref << termcolor::reset << "\n";
 
     // Print row contents with word wrapping
     for (size_t k = 0; k < row_heights[i]; ++k) {
       for (size_t j = 0; j < num_columns; ++j) {
-        print_row_in_cell(stream, table, {i, j}, {row_heights[i], column_widths[j]}, num_columns, k,
+        print_row_in_cell(stream_ref, table, {i, j}, {row_heights[i], column_widths[j]}, num_columns, k,
                           splitted_cells_text[i][j]);
       }
       if (k + 1 < row_heights[i])
-        stream << termcolor::reset << "\n";
+        stream_ref << termcolor::reset << "\n";
     }
 
     if (i + 1 == num_rows) {
@@ -8847,7 +9004,7 @@ inline void Printer::print_table(std::ostream &stream, TableInternal &table) {
       // Check if there is bottom border to print:
       auto bottom_border_needed{true};
       for (size_t j = 0; j < num_columns; ++j) {
-        auto cell = table[i][j];
+        auto &cell = table[i][j];
         auto format = cell.format();
         auto corner = *format.corner_bottom_left_;
         auto border_bottom = *format.border_bottom_;
@@ -8858,15 +9015,33 @@ inline void Printer::print_table(std::ostream &stream, TableInternal &table) {
       }
 
       if (bottom_border_needed)
-        stream << termcolor::reset << "\n";
+        stream_ref << termcolor::reset << "\n";
       // Print bottom border for table
       for (size_t j = 0; j < num_columns; ++j) {
-        print_cell_border_bottom(stream, table, {i, j}, {row_heights[i], column_widths[j]},
+        print_cell_border_bottom(stream_ref, table, {i, j}, {row_heights[i], column_widths[j]},
                                  num_columns);
       }
     }
     if (i + 1 < num_rows)
-      stream << termcolor::reset << "\n"; // Don't add newline after last row
+      stream_ref << termcolor::reset << "\n"; // Don't add newline after last row
+  }
+
+  if (indent > 0) {
+    // Manual split (not Format::split_lines, which drops a trailing empty
+    // segment): preserves the exact line structure, including a trailing
+    // newline, so indent > 0 and indent == 0 differ only by the padding.
+    const std::string content = buffer_stream.str();
+    const std::string pad(indent, ' ');
+    size_t pos = 0;
+    while (pos < content.size()) {
+      size_t newline_pos = content.find('\n', pos);
+      if (newline_pos == std::string::npos) {
+        stream << pad << content.substr(pos);
+        break;
+      }
+      stream << pad << content.substr(pos, newline_pos - pos) << "\n";
+      pos = newline_pos + 1;
+    }
   }
 }
 
@@ -8876,7 +9051,7 @@ inline void Printer::print_row_in_cell(std::ostream &stream, TableInternal &tabl
                                        size_t num_columns, size_t row_index,
                                        const std::vector<std::string> &splitted_cell_text) {
   auto column_width = dimension.second;
-  auto cell = table[index.first][index.second];
+  auto &cell = table[index.first][index.second];
   auto is_multi_byte_character_support_enabled = cell.is_multi_byte_character_support_enabled();
   auto format = cell.format();
   auto text_height = splitted_cell_text.size();
@@ -8973,7 +9148,7 @@ inline bool Printer::print_cell_border_top(std::ostream &stream, TableInternal &
                                            const std::pair<size_t, size_t> &index,
                                            const std::pair<size_t, size_t> &dimension,
                                            size_t num_columns) {
-  auto cell = table[index.first][index.second];
+  auto &cell = table[index.first][index.second];
   auto format = cell.format();
   auto column_width = dimension.second;
 
@@ -8998,16 +9173,19 @@ inline bool Printer::print_cell_border_top(std::ostream &stream, TableInternal &
     stream << corner;
   reset_element_style(stream);
 
-  for (size_t i = 0; i < column_width; ++i) {
+  {
+    // Apply style once and batch the repeated border character into a
+    // single write, instead of once per column-width unit.
+    const std::string &repeated_unit =
+        (*format.show_row_separator_ && index.first == 0) ? std::string(" ") : border_top;
+    std::string line;
+    line.reserve(repeated_unit.size() * column_width);
+    for (size_t i = 0; i < column_width; ++i)
+      line += repeated_unit;
+
     apply_element_style(stream, *format.border_top_color_, *format.border_top_background_color_,
                         *format.border_top_style_);
-    if (*format.show_row_separator_) {
-      if (index.first != 0)
-        stream << border_top;
-      else
-        stream << " ";
-    } else
-      stream << border_top;
+    stream << line;
     reset_element_style(stream);
   }
 
@@ -9036,7 +9214,7 @@ inline bool Printer::print_cell_border_bottom(std::ostream &stream, TableInterna
                                               const std::pair<size_t, size_t> &index,
                                               const std::pair<size_t, size_t> &dimension,
                                               size_t num_columns) {
-  auto cell = table[index.first][index.second];
+  auto &cell = table[index.first][index.second];
   auto format = cell.format();
   auto column_width = dimension.second;
 
@@ -9054,10 +9232,17 @@ inline bool Printer::print_cell_border_bottom(std::ostream &stream, TableInterna
   stream << corner;
   reset_element_style(stream);
 
-  for (size_t i = 0; i < column_width; ++i) {
+  {
+    // Apply style once and batch the repeated border character into a
+    // single write, instead of once per column-width unit.
+    std::string line;
+    line.reserve(border_bottom.size() * column_width);
+    for (size_t i = 0; i < column_width; ++i)
+      line += border_bottom;
+
     apply_element_style(stream, *format.border_bottom_color_,
                         *format.border_bottom_background_color_, *format.border_bottom_style_);
-    stream << border_bottom;
+    stream << line;
     reset_element_style(stream);
   }
 
@@ -9282,6 +9467,14 @@ public:
   Format &format() { return table_->format(); }
 
   void print(std::ostream &stream) { table_->print(stream); }
+
+  // Prints just one row (see TableInternal::print_row() for the column-width
+  // caveat around streaming rows as they're added).
+  void print_row(size_t index, std::ostream &stream = std::cout) { table_->print_row(stream, index); }
+
+  // Prints the table's closing bottom border. Pair with print_row() once
+  // the last row has been added and printed.
+  void print_bottom_border(std::ostream &stream = std::cout) { table_->print_bottom_border(stream); }
 
   std::string str() {
     std::stringstream stream;

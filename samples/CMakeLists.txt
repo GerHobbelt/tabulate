@@ -1,3 +1,13 @@
+# Build samples with C++20 when the compiler supports it, so conditionally
+# compiled code paths (e.g. std::format in benchmark.cpp) actually get
+# exercised. Falls back to whatever standard tabulate itself requires
+# (C++11/17 via USE_CPP17) if the compiler doesn't support C++20.
+if("cxx_std_20" IN_LIST CMAKE_CXX_COMPILE_FEATURES)
+  set(CMAKE_CXX_STANDARD 20)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  message(STATUS "Building samples with C++20")
+endif()
+
 find_package(Threads REQUIRED)
 
 add_executable(ansi_escape_width ansi_escape_width.cpp)
@@ -92,6 +102,15 @@ target_link_libraries(black_color PRIVATE tabulate::tabulate)
 
 add_executable(table_dimensions table_dimensions.cpp)
 target_link_libraries(table_dimensions PRIVATE tabulate::tabulate)
+
+add_executable(indentation indentation.cpp)
+target_link_libraries(indentation PRIVATE tabulate::tabulate)
+
+add_executable(streaming_rows streaming_rows.cpp)
+target_link_libraries(streaming_rows PRIVATE tabulate::tabulate)
+
+add_executable(benchmark benchmark.cpp)
+target_link_libraries(benchmark PRIVATE tabulate::tabulate)
 
 add_executable(string_view_in_row string_view_in_row.cpp) 
 target_link_libraries(string_view_in_row PRIVATE tabulate::tabulate ${CMAKE_THREAD_LIBS_INIT})

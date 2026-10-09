@@ -65,6 +65,14 @@ public:
     return *this;
   }
 
+  // Number of spaces to prepend to every line of the rendered table. Only
+  // consulted on the table's own format (table.format().indent(n)); row- and
+  // cell-level values have no effect.
+  Format &indent(size_t value) {
+    indent_ = value;
+    return *this;
+  }
+
   Format &height(size_t value) {
     height_ = value;
     return *this;
@@ -471,11 +479,10 @@ public:
 
     for (size_t i = 0; i < words.size(); ++i) {
       std::string word = words[i];
+      auto word_length = get_sequence_length(word, locale, is_multi_byte_character_support_enabled);
       // If adding the new word to the current line would be too long,
       // then put it on a new line (and split it up if it's too long).
-      if (current_line_length +
-              get_sequence_length(word, locale, is_multi_byte_character_support_enabled) >
-          width) {
+      if (current_line_length + word_length > width) {
         // Only move down to a new line if we have text on the current line.
         // Avoids situation where wrapped whitespace causes emptylines in text.
         if (current_line_length > 0) {
@@ -485,7 +492,7 @@ public:
 
         // If the current word is too long to fit on a line even on it's own
         // then split the word up.
-        while (get_sequence_length(word, locale, is_multi_byte_character_support_enabled) > width) {
+        while (word_length > width) {
           // Split on a character boundary, not a byte offset, so multi-byte
           // sequences (e.g. CJK text) aren't cut in half.
           auto split_at = byte_offset_for_width(word, locale, is_multi_byte_character_support_enabled,
@@ -493,15 +500,16 @@ public:
           result += word.substr(0, split_at) + "-";
           word = word.substr(split_at);
           result += '\n';
+          word_length = get_sequence_length(word, locale, is_multi_byte_character_support_enabled);
         }
 
         // Remove leading whitespace from the word so the new line starts flush
         // to the left.
         word = trim_left(word);
+        word_length = get_sequence_length(word, locale, is_multi_byte_character_support_enabled);
       }
       result += word;
-      current_line_length +=
-          get_sequence_length(word, locale, is_multi_byte_character_support_enabled);
+      current_line_length += word_length;
     }
     return result;
   }
@@ -537,6 +545,7 @@ public:
     if (target.field == previous.field)                                                         \
     target.field.reset()
     TABULATE_RESET_IF_UNCHANGED(width_);
+    TABULATE_RESET_IF_UNCHANGED(indent_);
     TABULATE_RESET_IF_UNCHANGED(height_);
     TABULATE_RESET_IF_UNCHANGED(font_align_);
     TABULATE_RESET_IF_UNCHANGED(font_style_);
@@ -592,6 +601,76 @@ public:
 #undef TABULATE_RESET_IF_UNCHANGED
   }
 
+public:
+  // Lets Row/Cell::format() cheaply detect "did the parent's format actually
+  // change since my last merge?" and skip re-merging (which touches every
+  // field) when it didn't -- the common case when printing a table more
+  // than once, or rendering the same cell multiple times within one print.
+  // Short-circuits on the first differing field, same as reset_inherited_fields.
+  bool operator==(const Format &other) const {
+    bool result = true;
+#define TABULATE_FIELD_EQUAL(field) result = result && (field == other.field)
+    TABULATE_FIELD_EQUAL(width_);
+    TABULATE_FIELD_EQUAL(indent_);
+    TABULATE_FIELD_EQUAL(height_);
+    TABULATE_FIELD_EQUAL(font_align_);
+    TABULATE_FIELD_EQUAL(font_style_);
+    TABULATE_FIELD_EQUAL(font_color_);
+    TABULATE_FIELD_EQUAL(font_background_color_);
+    TABULATE_FIELD_EQUAL(padding_left_);
+    TABULATE_FIELD_EQUAL(padding_top_);
+    TABULATE_FIELD_EQUAL(padding_right_);
+    TABULATE_FIELD_EQUAL(padding_bottom_);
+    TABULATE_FIELD_EQUAL(border_left_);
+    TABULATE_FIELD_EQUAL(border_left_color_);
+    TABULATE_FIELD_EQUAL(border_left_background_color_);
+    TABULATE_FIELD_EQUAL(border_left_style_);
+    TABULATE_FIELD_EQUAL(border_top_);
+    TABULATE_FIELD_EQUAL(border_top_color_);
+    TABULATE_FIELD_EQUAL(border_top_background_color_);
+    TABULATE_FIELD_EQUAL(border_top_style_);
+    TABULATE_FIELD_EQUAL(border_bottom_);
+    TABULATE_FIELD_EQUAL(border_bottom_color_);
+    TABULATE_FIELD_EQUAL(border_bottom_background_color_);
+    TABULATE_FIELD_EQUAL(border_bottom_style_);
+    TABULATE_FIELD_EQUAL(border_right_);
+    TABULATE_FIELD_EQUAL(border_right_color_);
+    TABULATE_FIELD_EQUAL(border_right_background_color_);
+    TABULATE_FIELD_EQUAL(border_right_style_);
+    TABULATE_FIELD_EQUAL(show_border_top_);
+    TABULATE_FIELD_EQUAL(show_border_bottom_);
+    TABULATE_FIELD_EQUAL(show_border_left_);
+    TABULATE_FIELD_EQUAL(show_border_right_);
+    TABULATE_FIELD_EQUAL(corner_top_left_);
+    TABULATE_FIELD_EQUAL(corner_top_left_color_);
+    TABULATE_FIELD_EQUAL(corner_top_left_background_color_);
+    TABULATE_FIELD_EQUAL(corner_top_left_style_);
+    TABULATE_FIELD_EQUAL(corner_top_right_);
+    TABULATE_FIELD_EQUAL(corner_top_right_color_);
+    TABULATE_FIELD_EQUAL(corner_top_right_background_color_);
+    TABULATE_FIELD_EQUAL(corner_top_right_style_);
+    TABULATE_FIELD_EQUAL(corner_bottom_left_);
+    TABULATE_FIELD_EQUAL(corner_bottom_left_color_);
+    TABULATE_FIELD_EQUAL(corner_bottom_left_background_color_);
+    TABULATE_FIELD_EQUAL(corner_bottom_left_style_);
+    TABULATE_FIELD_EQUAL(corner_bottom_right_);
+    TABULATE_FIELD_EQUAL(corner_bottom_right_color_);
+    TABULATE_FIELD_EQUAL(corner_bottom_right_background_color_);
+    TABULATE_FIELD_EQUAL(corner_bottom_right_style_);
+    TABULATE_FIELD_EQUAL(column_separator_);
+    TABULATE_FIELD_EQUAL(column_separator_color_);
+    TABULATE_FIELD_EQUAL(column_separator_background_color_);
+    TABULATE_FIELD_EQUAL(multi_byte_characters_);
+    TABULATE_FIELD_EQUAL(locale_);
+    TABULATE_FIELD_EQUAL(trim_mode_);
+    TABULATE_FIELD_EQUAL(show_row_separator_);
+#undef TABULATE_FIELD_EQUAL
+    return result;
+  }
+
+  bool operator!=(const Format &other) const { return !(*this == other); }
+
+private:
   // Merge two formats
   // first has higher precedence
   // e.g., first = cell-level formatting and
@@ -606,6 +685,11 @@ public:
       result.width_ = first.width_;
     else
       result.width_ = second.width_;
+
+    if (first.indent_.has_value())
+      result.indent_ = first.indent_;
+    else
+      result.indent_ = second.indent_;
 
     if (first.height_.has_value())
       result.height_ = first.height_;
@@ -898,6 +982,7 @@ private:
 
   void set_defaults() {
     // NOTE: width and height are not set here
+    indent_ = 0;
     font_align_ = FontAlign::left;
     font_style_ = std::vector<FontStyle>{};
     font_color_ = font_background_color_ = Color::none;
@@ -953,16 +1038,18 @@ private:
 
   static size_t index_of_any(const std::string &input, size_t start_index,
                              const std::vector<std::string> &split_characters) {
-    std::vector<size_t> indices{};
-    for (auto &c : split_characters) {
-      auto index = input.find(c, start_index);
-      if (index != std::string::npos)
-        indices.push_back(index);
-    }
-    if (indices.size() > 0)
-      return *std::min_element(indices.begin(), indices.end());
-    else
-      return std::string::npos;
+    // Single-pass scan for any of the (single-character) delimiters, instead
+    // of a separate input.find() per delimiter. The old approach meant any
+    // delimiter that doesn't occur again before the end of the string (e.g.
+    // no more '-' or '\t' in typical prose) scanned the *entire* remainder of
+    // the string on every call, making word-wrap's caller (explode_string)
+    // effectively quadratic in input length.
+    std::string delimiters;
+    delimiters.reserve(split_characters.size());
+    for (auto &c : split_characters)
+      if (!c.empty())
+        delimiters += c[0];
+    return input.find_first_of(delimiters, start_index);
   }
 
   static std::vector<std::string> explode_string(const std::string &input,
@@ -995,6 +1082,7 @@ private:
 
   // Element width and height
   optional<size_t> width_{};
+  optional<size_t> indent_{};
   optional<size_t> height_{};
 
   // Font styling

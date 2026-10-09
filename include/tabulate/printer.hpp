@@ -44,6 +44,12 @@ public:
   static std::pair<std::vector<size_t>, std::vector<size_t>>
   compute_cell_dimensions(TableInternal &table);
 
+  // Word-wraps and splits a cell's text into the lines that will be printed,
+  // given the column width it will be rendered at. Shared by print_table()
+  // and TableInternal::print_row() so incremental, per-row printing applies
+  // the exact same word-wrapping as a full print.
+  static std::vector<std::string> split_cell_text(Cell &cell, size_t column_width);
+
   static void print_table(std::ostream &stream, TableInternal &table);
 
   static void print_row_in_cell(std::ostream &stream, TableInternal &table,
@@ -86,9 +92,7 @@ private:
     apply_element_style(stream, *format.font_color_, *format.font_background_color_, {});
 
     if (text_with_padding_size < column_width) {
-      for (size_t j = 0; j < (column_width - text_with_padding_size); ++j) {
-        stream << " ";
-      }
+      stream << std::string(column_width - text_with_padding_size, ' ');
     }
   }
 
@@ -98,8 +102,7 @@ private:
     auto num_spaces = column_width - text_with_padding_size;
     if (num_spaces % 2 == 0) {
       // Even spacing on either side
-      for (size_t j = 0; j < num_spaces / 2; ++j)
-        stream << " ";
+      stream << std::string(num_spaces / 2, ' ');
 
       // Apply font style
       apply_element_style(stream, *format.font_color_, *format.font_background_color_,
@@ -110,12 +113,10 @@ private:
       reset_element_style(stream);
       apply_element_style(stream, *format.font_color_, *format.font_background_color_, {});
 
-      for (size_t j = 0; j < num_spaces / 2; ++j)
-        stream << " ";
+      stream << std::string(num_spaces / 2, ' ');
     } else {
       auto num_spaces_before = num_spaces / 2 + 1;
-      for (size_t j = 0; j < num_spaces_before; ++j)
-        stream << " ";
+      stream << std::string(num_spaces_before, ' ');
 
       // Apply font style
       apply_element_style(stream, *format.font_color_, *format.font_background_color_,
@@ -126,8 +127,7 @@ private:
       reset_element_style(stream);
       apply_element_style(stream, *format.font_color_, *format.font_background_color_, {});
 
-      for (size_t j = 0; j < num_spaces - num_spaces_before; ++j)
-        stream << " ";
+      stream << std::string(num_spaces - num_spaces_before, ' ');
     }
   }
 
@@ -135,9 +135,7 @@ private:
                                           const Format &format, size_t text_with_padding_size,
                                           size_t column_width) {
     if (text_with_padding_size < column_width) {
-      for (size_t j = 0; j < (column_width - text_with_padding_size); ++j) {
-        stream << " ";
-      }
+      stream << std::string(column_width - text_with_padding_size, ' ');
     }
 
     // Apply font style
