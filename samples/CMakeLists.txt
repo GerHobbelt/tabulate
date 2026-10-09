@@ -21,6 +21,9 @@ target_link_libraries(iterators PRIVATE tabulate::tabulate)
 add_executable(latex_export latex_export.cpp)
 target_link_libraries(latex_export PRIVATE tabulate::tabulate)
 
+add_executable(locale_preserved locale_preserved.cpp)
+target_link_libraries(locale_preserved PRIVATE tabulate::tabulate)
+
 add_executable(markdown_export markdown_export.cpp)
 target_link_libraries(markdown_export PRIVATE tabulate::tabulate)
 
@@ -29,6 +32,9 @@ target_link_libraries(mario PRIVATE tabulate::tabulate)
 
 add_executable(movies movies.cpp)
 target_link_libraries(movies PRIVATE tabulate::tabulate)
+
+add_executable(nested_table_colors nested_table_colors.cpp)
+target_link_libraries(nested_table_colors PRIVATE tabulate::tabulate)
 
 add_executable(no_trim no_trim.cpp)
 target_link_libraries(no_trim PRIVATE tabulate::tabulate)
@@ -59,6 +65,9 @@ target_link_libraries(asciidoc_export PRIVATE tabulate::tabulate)
 
 add_executable(refresh_table refresh_table.cpp) 
 target_link_libraries(refresh_table PRIVATE tabulate::tabulate ${CMAKE_THREAD_LIBS_INIT})
+
+add_executable(remove_column remove_column.cpp)
+target_link_libraries(remove_column PRIVATE tabulate::tabulate)
 
 add_executable(string_view_in_row string_view_in_row.cpp) 
 target_link_libraries(string_view_in_row PRIVATE tabulate::tabulate ${CMAKE_THREAD_LIBS_INIT})

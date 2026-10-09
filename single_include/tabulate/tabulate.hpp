@@ -7399,6 +7399,8 @@ public:
 
   void add_cell(std::shared_ptr<Cell> cell) { cells_.push_back(cell); }
 
+  void erase_cell(size_t index) { cells_.erase(cells_.begin() + index); }
+
   Cell &operator[](size_t index) { return cell(index); }
 
   Cell &cell(size_t index) { return *(cells_[index]); }
@@ -8330,6 +8332,12 @@ public:
 
   const Row &operator[](size_t index) const { return *(rows_[index]); }
 
+  void erase_column(size_t index) {
+    for (auto &row : rows_) {
+      row->erase_cell(index);
+    }
+  }
+
   Column column(size_t index) {
     Column column(shared_from_this());
     for (size_t i = 0; i < rows_.size(); ++i) {
@@ -8553,9 +8561,7 @@ inline void Printer::print_row_in_cell(std::ostream &stream, TableInternal &tabl
                                        const std::vector<std::string> &splitted_cell_text) {
   auto column_width = dimension.second;
   auto cell = table[index.first][index.second];
-  auto locale = cell.locale();
   auto is_multi_byte_character_support_enabled = cell.is_multi_byte_character_support_enabled();
-  auto old_locale = std::locale::global(std::locale(locale));
   auto format = cell.format();
   auto text_height = splitted_cell_text.size();
   auto padding_top = *format.padding_top_;
@@ -8635,7 +8641,6 @@ inline void Printer::print_row_in_cell(std::ostream &stream, TableInternal &tabl
       reset_element_style(stream);
     }
   }
-  std::locale::global(old_locale);
 }
 
 inline bool Printer::print_cell_border_top(std::ostream &stream, TableInternal &table,
@@ -8643,8 +8648,6 @@ inline bool Printer::print_cell_border_top(std::ostream &stream, TableInternal &
                                            const std::pair<size_t, size_t> &dimension,
                                            size_t num_columns) {
   auto cell = table[index.first][index.second];
-  auto locale = cell.locale();
-  auto old_locale = std::locale::global(std::locale(locale));
   auto format = cell.format();
   auto column_width = dimension.second;
 
@@ -8654,7 +8657,6 @@ inline bool Printer::print_cell_border_top(std::ostream &stream, TableInternal &
   auto border_top = *format.border_top_;
 
   if ((corner == "" && border_top == "") || !*format.show_border_top_) {
-    std::locale::global(old_locale);
     return false;
   }
 
@@ -8699,7 +8701,6 @@ inline bool Printer::print_cell_border_top(std::ostream &stream, TableInternal &
       stream << corner;
     reset_element_style(stream);
   }
-  std::locale::global(old_locale);
   return true;
 }
 
@@ -8708,8 +8709,6 @@ inline bool Printer::print_cell_border_bottom(std::ostream &stream, TableInterna
                                               const std::pair<size_t, size_t> &dimension,
                                               size_t num_columns) {
   auto cell = table[index.first][index.second];
-  auto locale = cell.locale();
-  auto old_locale = std::locale::global(std::locale(locale));
   auto format = cell.format();
   auto column_width = dimension.second;
 
@@ -8719,7 +8718,6 @@ inline bool Printer::print_cell_border_bottom(std::ostream &stream, TableInterna
   auto border_bottom = *format.border_bottom_;
 
   if ((corner == "" && border_bottom == "") || !*format.show_border_bottom_) {
-    std::locale::global(old_locale);
     return false;
   }
 
@@ -8744,7 +8742,6 @@ inline bool Printer::print_cell_border_bottom(std::ostream &stream, TableInterna
     stream << corner;
     reset_element_style(stream);
   }
-  std::locale::global(old_locale);
   return true;
 }
 
@@ -8841,6 +8838,11 @@ public:
       } else {
         auto table = *get_if<Table>(&cell);
         std::stringstream stream;
+        // termcolor emits nothing on a stream that is not a terminal, which
+        // would strip every color the nested table asked for. The destination
+        // is not known until the outer table is printed, so follow std::cout.
+        if (termcolor::_internal::is_colorized(std::cout))
+          stream << termcolor::colorize;
         table.print(stream);
         cell_strings[i] = stream.str();
       }
@@ -8856,6 +8858,13 @@ public:
   Row &row(size_t index) { return (*table_)[index]; }
 
   Column column(size_t index) { return table_->column(index); }
+
+  Table &erase_column(size_t index) {
+    table_->erase_column(index);
+    if (cols_ > 0)
+      cols_ -= 1;
+    return *this;
+  }
 
   Format &format() { return table_->format(); }
 

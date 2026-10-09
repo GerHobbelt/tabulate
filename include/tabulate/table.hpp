@@ -90,6 +90,11 @@ public:
       } else {
         auto table = *get_if<Table>(&cell);
         std::stringstream stream;
+        // termcolor emits nothing on a stream that is not a terminal, which
+        // would strip every color the nested table asked for. The destination
+        // is not known until the outer table is printed, so follow std::cout.
+        if (termcolor::_internal::is_colorized(std::cout))
+          stream << termcolor::colorize;
         table.print(stream);
         cell_strings[i] = stream.str();
       }
@@ -105,6 +110,13 @@ public:
   Row &row(size_t index) { return (*table_)[index]; }
 
   Column column(size_t index) { return table_->column(index); }
+
+  Table &erase_column(size_t index) {
+    table_->erase_column(index);
+    if (cols_ > 0)
+      cols_ -= 1;
+    return *this;
+  }
 
   Format &format() { return table_->format(); }
 
