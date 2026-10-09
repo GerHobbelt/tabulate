@@ -7512,7 +7512,8 @@ private:
         std::count(word_wrapped_text.begin(), word_wrapped_text.end(), '\n');
     auto estimated_row_height = newlines_in_wrapped_text;
 
-    if (!word_wrapped_text.empty() &&
+    // Empty cells still occupy one content line, in addition to their padding.
+    if (word_wrapped_text.empty() ||
         word_wrapped_text[word_wrapped_text.size() - 1] != '\n') // text doesn't end with a newline
       estimated_row_height += 1;
 
@@ -8571,6 +8572,11 @@ inline void Printer::print_row_in_cell(std::ostream &stream, TableInternal &tabl
                         {});
     stream << *format.border_left_;
     reset_element_style(stream);
+  } else {
+    // Keep the row the same width as the border/corner lines around it
+    stream << std::string(
+        get_sequence_length(*format.border_left_, cell.locale(), is_multi_byte_character_support_enabled),
+        ' ');
   }
 
   apply_element_style(stream, *format.font_color_, *format.font_background_color_, {});
@@ -8639,6 +8645,11 @@ inline void Printer::print_row_in_cell(std::ostream &stream, TableInternal &tabl
                           *format.border_right_background_color_, {});
       stream << *format.border_right_;
       reset_element_style(stream);
+    } else {
+      // Keep the row the same width as the border/corner lines around it
+      stream << std::string(get_sequence_length(*format.border_right_, cell.locale(),
+                                                is_multi_byte_character_support_enabled),
+                            ' ');
     }
   }
 }
@@ -8827,6 +8838,7 @@ public:
       std::fill(cell_strings.begin(), cell_strings.end(), "");
     }
 
+    std::vector<size_t> nested_table_indices;
     for (size_t i = 0; i < cells.size(); ++i) {
       auto cell = cells[i];
       if (holds_alternative<std::string>(cell)) {
@@ -8845,10 +8857,14 @@ public:
           stream << termcolor::colorize;
         table.print(stream);
         cell_strings[i] = stream.str();
+        nested_table_indices.push_back(i);
       }
     }
 
     table_->add_row(cell_strings);
+    // A nested table's text is pre-formatted ASCII art: trimming would corrupt its layout.
+    for (auto i : nested_table_indices)
+      row(rows_)[i].format().trim_mode(Format::TrimMode::kNone);
     rows_ += 1;
     return *this;
   }
