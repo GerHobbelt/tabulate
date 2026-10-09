@@ -5427,22 +5427,22 @@ nssv_inline_ns namespace string_view_literals {
 
 #if nssv_CONFIG_STD_SV_OPERATOR && nssv_HAVE_STD_DEFINED_LITERALS
 
-nssv_constexpr nonstd::sv_lite::string_view operator "" sv( const char* str, size_t len ) nssv_noexcept  // (1)
+nssv_constexpr nonstd::sv_lite::string_view operator""sv( const char* str, size_t len ) nssv_noexcept  // (1)
 {
     return nonstd::sv_lite::string_view{ str, len };
 }
 
-nssv_constexpr nonstd::sv_lite::u16string_view operator "" sv( const char16_t* str, size_t len ) nssv_noexcept  // (2)
+nssv_constexpr nonstd::sv_lite::u16string_view operator""sv( const char16_t* str, size_t len ) nssv_noexcept  // (2)
 {
     return nonstd::sv_lite::u16string_view{ str, len };
 }
 
-nssv_constexpr nonstd::sv_lite::u32string_view operator "" sv( const char32_t* str, size_t len ) nssv_noexcept  // (3)
+nssv_constexpr nonstd::sv_lite::u32string_view operator""sv( const char32_t* str, size_t len ) nssv_noexcept  // (3)
 {
     return nonstd::sv_lite::u32string_view{ str, len };
 }
 
-nssv_constexpr nonstd::sv_lite::wstring_view operator "" sv( const wchar_t* str, size_t len ) nssv_noexcept  // (4)
+nssv_constexpr nonstd::sv_lite::wstring_view operator""sv( const wchar_t* str, size_t len ) nssv_noexcept  // (4)
 {
     return nonstd::sv_lite::wstring_view{ str, len };
 }
@@ -5451,22 +5451,22 @@ nssv_constexpr nonstd::sv_lite::wstring_view operator "" sv( const wchar_t* str,
 
 #if nssv_CONFIG_USR_SV_OPERATOR
 
-nssv_constexpr nonstd::sv_lite::string_view operator "" _sv( const char* str, size_t len ) nssv_noexcept  // (1)
+nssv_constexpr nonstd::sv_lite::string_view operator""_sv( const char* str, size_t len ) nssv_noexcept  // (1)
 {
     return nonstd::sv_lite::string_view{ str, len };
 }
 
-nssv_constexpr nonstd::sv_lite::u16string_view operator "" _sv( const char16_t* str, size_t len ) nssv_noexcept  // (2)
+nssv_constexpr nonstd::sv_lite::u16string_view operator""_sv( const char16_t* str, size_t len ) nssv_noexcept  // (2)
 {
     return nonstd::sv_lite::u16string_view{ str, len };
 }
 
-nssv_constexpr nonstd::sv_lite::u32string_view operator "" _sv( const char32_t* str, size_t len ) nssv_noexcept  // (3)
+nssv_constexpr nonstd::sv_lite::u32string_view operator""_sv( const char32_t* str, size_t len ) nssv_noexcept  // (3)
 {
     return nonstd::sv_lite::u32string_view{ str, len };
 }
 
-nssv_constexpr nonstd::sv_lite::wstring_view operator "" _sv( const wchar_t* str, size_t len ) nssv_noexcept  // (4)
+nssv_constexpr nonstd::sv_lite::wstring_view operator""_sv( const wchar_t* str, size_t len ) nssv_noexcept  // (4)
 {
     return nonstd::sv_lite::wstring_view{ str, len };
 }
@@ -5676,6 +5676,7 @@ inline bool is_colorized(std::ostream &stream);
 inline bool is_atty(const std::ostream &stream);
 
 #if defined(TERMCOLOR_OS_WINDOWS)
+inline bool supports_vt_processing(const std::ostream &stream);
 inline void win_change_attributes(std::ostream &stream, int foreground, int background = -1);
 #endif
 } // namespace _internal
@@ -5695,7 +5696,10 @@ inline std::ostream &reset(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[00m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, -1, -1);
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[00m";
+    else
+      _internal::win_change_attributes(stream, -1, -1);
 #endif
   }
   return stream;
@@ -5706,6 +5710,10 @@ inline std::ostream &bold(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[1m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
+    // No legacy Win32 console attribute for bold; silently ignored on
+    // old consoles that don't support VT100, same as historically.
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[1m";
 #endif
   }
   return stream;
@@ -5716,6 +5724,8 @@ inline std::ostream &dark(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[2m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[2m";
 #endif
   }
   return stream;
@@ -5726,6 +5736,8 @@ inline std::ostream &italic(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[3m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[3m";
 #endif
   }
   return stream;
@@ -5736,6 +5748,8 @@ inline std::ostream &underline(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[4m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[4m";
 #endif
   }
   return stream;
@@ -5746,6 +5760,8 @@ inline std::ostream &blink(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[5m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[5m";
 #endif
   }
   return stream;
@@ -5756,6 +5772,8 @@ inline std::ostream &reverse(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[7m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[7m";
 #endif
   }
   return stream;
@@ -5766,6 +5784,8 @@ inline std::ostream &concealed(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[8m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[8m";
 #endif
   }
   return stream;
@@ -5776,6 +5796,8 @@ inline std::ostream &crossed(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[9m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[9m";
 #endif
   }
   return stream;
@@ -5786,8 +5808,11 @@ inline std::ostream &black(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[30m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, 0 // black
-    );
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[30m";
+    else
+      _internal::win_change_attributes(stream, 0 // black
+      );
 #endif
   }
   return stream;
@@ -5798,9 +5823,12 @@ inline std::ostream &grey(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[30m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream,
-                                     0 // grey (black)
-    );
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[30m";
+    else
+      _internal::win_change_attributes(stream,
+                                       0 // grey (black)
+      );
 #endif
   }
   return stream;
@@ -5811,7 +5839,10 @@ inline std::ostream &red(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[31m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, FOREGROUND_RED);
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[31m";
+    else
+      _internal::win_change_attributes(stream, FOREGROUND_RED);
 #endif
   }
   return stream;
@@ -5822,7 +5853,10 @@ inline std::ostream &green(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[32m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, FOREGROUND_GREEN);
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[32m";
+    else
+      _internal::win_change_attributes(stream, FOREGROUND_GREEN);
 #endif
   }
   return stream;
@@ -5833,7 +5867,10 @@ inline std::ostream &yellow(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[33m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, FOREGROUND_GREEN | FOREGROUND_RED);
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[33m";
+    else
+      _internal::win_change_attributes(stream, FOREGROUND_GREEN | FOREGROUND_RED);
 #endif
   }
   return stream;
@@ -5844,7 +5881,10 @@ inline std::ostream &blue(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[34m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, FOREGROUND_BLUE);
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[34m";
+    else
+      _internal::win_change_attributes(stream, FOREGROUND_BLUE);
 #endif
   }
   return stream;
@@ -5855,7 +5895,10 @@ inline std::ostream &magenta(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[35m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, FOREGROUND_BLUE | FOREGROUND_RED);
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[35m";
+    else
+      _internal::win_change_attributes(stream, FOREGROUND_BLUE | FOREGROUND_RED);
 #endif
   }
   return stream;
@@ -5866,7 +5909,10 @@ inline std::ostream &cyan(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[36m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, FOREGROUND_BLUE | FOREGROUND_GREEN);
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[36m";
+    else
+      _internal::win_change_attributes(stream, FOREGROUND_BLUE | FOREGROUND_GREEN);
 #endif
   }
   return stream;
@@ -5877,7 +5923,10 @@ inline std::ostream &white(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[37m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[37m";
+    else
+      _internal::win_change_attributes(stream, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
 #endif
   }
   return stream;
@@ -5888,9 +5937,12 @@ inline std::ostream &on_grey(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[40m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, -1,
-                                     0 // grey (black)
-    );
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[40m";
+    else
+      _internal::win_change_attributes(stream, -1,
+                                       0 // grey (black)
+      );
 #endif
   }
   return stream;
@@ -5901,9 +5953,12 @@ inline std::ostream &on_black(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[40m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, -1,
-                                     0 // black
-    );
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[40m";
+    else
+      _internal::win_change_attributes(stream, -1,
+                                       0 // black
+      );
 #endif
   }
   return stream;
@@ -5914,7 +5969,10 @@ inline std::ostream &on_red(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[41m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, -1, BACKGROUND_RED);
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[41m";
+    else
+      _internal::win_change_attributes(stream, -1, BACKGROUND_RED);
 #endif
   }
   return stream;
@@ -5925,7 +5983,10 @@ inline std::ostream &on_green(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[42m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, -1, BACKGROUND_GREEN);
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[42m";
+    else
+      _internal::win_change_attributes(stream, -1, BACKGROUND_GREEN);
 #endif
   }
   return stream;
@@ -5936,7 +5997,10 @@ inline std::ostream &on_yellow(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[43m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, -1, BACKGROUND_GREEN | BACKGROUND_RED);
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[43m";
+    else
+      _internal::win_change_attributes(stream, -1, BACKGROUND_GREEN | BACKGROUND_RED);
 #endif
   }
   return stream;
@@ -5947,7 +6011,10 @@ inline std::ostream &on_blue(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[44m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, -1, BACKGROUND_BLUE);
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[44m";
+    else
+      _internal::win_change_attributes(stream, -1, BACKGROUND_BLUE);
 #endif
   }
   return stream;
@@ -5958,7 +6025,10 @@ inline std::ostream &on_magenta(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[45m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, -1, BACKGROUND_BLUE | BACKGROUND_RED);
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[45m";
+    else
+      _internal::win_change_attributes(stream, -1, BACKGROUND_BLUE | BACKGROUND_RED);
 #endif
   }
   return stream;
@@ -5969,7 +6039,10 @@ inline std::ostream &on_cyan(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[46m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, -1, BACKGROUND_GREEN | BACKGROUND_BLUE);
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[46m";
+    else
+      _internal::win_change_attributes(stream, -1, BACKGROUND_GREEN | BACKGROUND_BLUE);
 #endif
   }
   return stream;
@@ -5980,8 +6053,11 @@ inline std::ostream &on_white(std::ostream &stream) {
 #if defined(TERMCOLOR_OS_MACOS) || defined(TERMCOLOR_OS_LINUX)
     stream << "\033[47m";
 #elif defined(TERMCOLOR_OS_WINDOWS)
-    _internal::win_change_attributes(stream, -1,
-                                     BACKGROUND_GREEN | BACKGROUND_BLUE | BACKGROUND_RED);
+    if (_internal::supports_vt_processing(stream))
+      stream << "\033[47m";
+    else
+      _internal::win_change_attributes(stream, -1,
+                                       BACKGROUND_GREEN | BACKGROUND_BLUE | BACKGROUND_RED);
 #endif
   }
 
@@ -6032,6 +6108,44 @@ inline bool is_atty(const std::ostream &stream) {
 }
 
 #if defined(TERMCOLOR_OS_WINDOWS)
+#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+#endif
+
+//! Whether `stream`'s console (if any) accepts ANSI/VT100 escape sequences.
+//! True for any non-console stream (file, pipe, std::stringstream) so that
+//! redirected/captured output always carries portable ANSI codes, same as
+//! on *nix. For a real console, this is only true on Windows 10 1511+ (or
+//! a modern terminal emulator) where the mode bit is actually settable;
+//! older consoles fall back to win_change_attributes() below. Cached per
+//! standard stream since the answer can't change during a process's run.
+inline bool supports_vt_processing(const std::ostream &stream) {
+  if (!is_atty(stream))
+    return true;
+
+  static int cout_support = -1; // -1 = not yet checked, 0 = no, 1 = yes
+  static int cerr_support = -1;
+  int *cached = &stream == &std::cout ? &cout_support
+              : (&stream == &std::cerr || &stream == &std::clog) ? &cerr_support
+                                                                  : nullptr;
+  if (cached && *cached != -1)
+    return *cached != 0;
+
+  bool supported = false;
+  FILE *std_stream = get_standard_stream(stream);
+  if (std_stream) {
+    HANDLE handle = reinterpret_cast<HANDLE>(_get_osfhandle(_fileno(std_stream)));
+    DWORD mode = 0;
+    if (handle != INVALID_HANDLE_VALUE && GetConsoleMode(handle, &mode))
+      supported = (mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0 ||
+                  SetConsoleMode(handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+  }
+
+  if (cached)
+    *cached = supported ? 1 : 0;
+  return supported;
+}
+
 //! Change Windows Terminal colors attribute. If some
 //! parameter is `-1` then attribute won't changed.
 inline void win_change_attributes(std::ostream &stream, int foreground, int background) {
@@ -6186,6 +6300,167 @@ inline const char *skip_ansi_escape_sequence(const char *p) {
   return p + 1;
 }
 
+#if defined(_WIN32) || defined(_WIN64)
+// wcwidth() is a POSIX API and isn't available on Windows, and the width a
+// console actually renders a character with doesn't depend on the current
+// locale the way *nix's wcwidth() does. mk_wcwidth() is Markus Kuhn's public
+// domain implementation (https://www.cl.cam.ac.uk/~mgk25/ucs/wcwidth.c),
+// ported to char32_t, which tells us the display width directly from the
+// Unicode code point: 0 for combining/zero-width characters, 1 for ordinary
+// characters, and 2 for wide (e.g. CJK) characters.
+struct unicode_interval {
+  char32_t first;
+  char32_t last;
+};
+
+inline bool in_interval_table(char32_t ucs, const unicode_interval *table, int table_size) {
+  int min = 0, max = table_size - 1;
+  if (table_size == 0 || ucs < table[0].first || ucs > table[max].last)
+    return false;
+  while (max >= min) {
+    int mid = (min + max) / 2;
+    if (ucs > table[mid].last)
+      min = mid + 1;
+    else if (ucs < table[mid].first)
+      max = mid - 1;
+    else
+      return true;
+  }
+  return false;
+}
+
+inline int mk_wcwidth(char32_t ucs) {
+  // Sorted list of non-overlapping intervals of non-spacing characters,
+  // generated by "uniset +cat=Me +cat=Mn +cat=Cf -00AD +1160-11FF +200B c"
+  static const unicode_interval combining[] = {
+      {0x0300, 0x036F},   {0x0483, 0x0486},   {0x0488, 0x0489},   {0x0591, 0x05BD},
+      {0x05BF, 0x05BF},   {0x05C1, 0x05C2},   {0x05C4, 0x05C5},   {0x05C7, 0x05C7},
+      {0x0600, 0x0603},   {0x0610, 0x0615},   {0x064B, 0x065E},   {0x0670, 0x0670},
+      {0x06D6, 0x06E4},   {0x06E7, 0x06E8},   {0x06EA, 0x06ED},   {0x070F, 0x070F},
+      {0x0711, 0x0711},   {0x0730, 0x074A},   {0x07A6, 0x07B0},   {0x07EB, 0x07F3},
+      {0x0901, 0x0902},   {0x093C, 0x093C},   {0x0941, 0x0948},   {0x094D, 0x094D},
+      {0x0951, 0x0954},   {0x0962, 0x0963},   {0x0981, 0x0981},   {0x09BC, 0x09BC},
+      {0x09C1, 0x09C4},   {0x09CD, 0x09CD},   {0x09E2, 0x09E3},   {0x0A01, 0x0A02},
+      {0x0A3C, 0x0A3C},   {0x0A41, 0x0A42},   {0x0A47, 0x0A48},   {0x0A4B, 0x0A4D},
+      {0x0A70, 0x0A71},   {0x0A81, 0x0A82},   {0x0ABC, 0x0ABC},   {0x0AC1, 0x0AC5},
+      {0x0AC7, 0x0AC8},   {0x0ACD, 0x0ACD},   {0x0AE2, 0x0AE3},   {0x0B01, 0x0B01},
+      {0x0B3C, 0x0B3C},   {0x0B3F, 0x0B3F},   {0x0B41, 0x0B43},   {0x0B4D, 0x0B4D},
+      {0x0B56, 0x0B56},   {0x0B82, 0x0B82},   {0x0BC0, 0x0BC0},   {0x0BCD, 0x0BCD},
+      {0x0C3E, 0x0C40},   {0x0C46, 0x0C48},   {0x0C4A, 0x0C4D},   {0x0C55, 0x0C56},
+      {0x0CBC, 0x0CBC},   {0x0CBF, 0x0CBF},   {0x0CC6, 0x0CC6},   {0x0CCC, 0x0CCD},
+      {0x0CE2, 0x0CE3},   {0x0D41, 0x0D43},   {0x0D4D, 0x0D4D},   {0x0DCA, 0x0DCA},
+      {0x0DD2, 0x0DD4},   {0x0DD6, 0x0DD6},   {0x0E31, 0x0E31},   {0x0E34, 0x0E3A},
+      {0x0E47, 0x0E4E},   {0x0EB1, 0x0EB1},   {0x0EB4, 0x0EB9},   {0x0EBB, 0x0EBC},
+      {0x0EC8, 0x0ECD},   {0x0F18, 0x0F19},   {0x0F35, 0x0F35},   {0x0F37, 0x0F37},
+      {0x0F39, 0x0F39},   {0x0F71, 0x0F7E},   {0x0F80, 0x0F84},   {0x0F86, 0x0F87},
+      {0x0F90, 0x0F97},   {0x0F99, 0x0FBC},   {0x0FC6, 0x0FC6},   {0x102D, 0x1030},
+      {0x1032, 0x1032},   {0x1036, 0x1037},   {0x1039, 0x1039},   {0x1058, 0x1059},
+      {0x1160, 0x11FF},   {0x135F, 0x135F},   {0x1712, 0x1714},   {0x1732, 0x1734},
+      {0x1752, 0x1753},   {0x1772, 0x1773},   {0x17B4, 0x17B5},   {0x17B7, 0x17BD},
+      {0x17C6, 0x17C6},   {0x17C9, 0x17D3},   {0x17DD, 0x17DD},   {0x180B, 0x180D},
+      {0x18A9, 0x18A9},   {0x1920, 0x1922},   {0x1927, 0x1928},   {0x1932, 0x1932},
+      {0x1939, 0x193B},   {0x1A17, 0x1A18},   {0x1B00, 0x1B03},   {0x1B34, 0x1B34},
+      {0x1B36, 0x1B3A},   {0x1B3C, 0x1B3C},   {0x1B42, 0x1B42},   {0x1B6B, 0x1B73},
+      {0x1DC0, 0x1DCA},   {0x1DFE, 0x1DFF},   {0x200B, 0x200F},   {0x202A, 0x202E},
+      {0x2060, 0x2063},   {0x206A, 0x206F},   {0x20D0, 0x20EF},   {0x302A, 0x302F},
+      {0x3099, 0x309A},   {0xA806, 0xA806},   {0xA80B, 0xA80B},   {0xA825, 0xA826},
+      {0xFB1E, 0xFB1E},   {0xFE00, 0xFE0F},   {0xFE20, 0xFE23},   {0xFEFF, 0xFEFF},
+      {0xFFF9, 0xFFFB},   {0x10A01, 0x10A03}, {0x10A05, 0x10A06}, {0x10A0C, 0x10A0F},
+      {0x10A38, 0x10A3A}, {0x10A3F, 0x10A3F}, {0x1D167, 0x1D169}, {0x1D173, 0x1D182},
+      {0x1D185, 0x1D18B}, {0x1D1AA, 0x1D1AD}, {0x1D242, 0x1D244}, {0xE0001, 0xE0001},
+      {0xE0020, 0xE007F}, {0xE0100, 0xE01EF},
+  };
+
+  if (ucs == 0)
+    return 0;
+  // C0/C1 control characters
+  if (ucs < 32 || (ucs >= 0x7f && ucs < 0xa0))
+    return -1;
+
+  if (in_interval_table(ucs, combining, sizeof(combining) / sizeof(combining[0])))
+    return 0;
+
+  return 1 +
+         (ucs >= 0x1100 &&
+          (ucs <= 0x115f || // Hangul Jamo init. consonants
+           ucs == 0x2329 || ucs == 0x232a ||
+           (ucs >= 0x2e80 && ucs <= 0xa4cf && ucs != 0x303f) || // CJK ... Yi
+           (ucs >= 0xac00 && ucs <= 0xd7a3) ||                  // Hangul Syllables
+           (ucs >= 0xf900 && ucs <= 0xfaff) || // CJK Compatibility Ideographs
+           (ucs >= 0xfe30 && ucs <= 0xfe6f) ||  // CJK Compatibility Forms
+           (ucs >= 0xff00 && ucs <= 0xff60) ||  // Fullwidth Forms
+           (ucs >= 0xffe0 && ucs <= 0xffe6) ||
+           (ucs >= 0x20000 && ucs <= 0x2fffd) || (ucs >= 0x30000 && ucs <= 0x3fffd)));
+}
+
+// Decodes the UTF-8 character starting at p and sets length to the number of
+// bytes it occupies. On an invalid or truncated sequence, treats the lead
+// byte as a standalone width-1 character and sets length to 1, same as the
+// *nix mbrtowc() error handling below.
+inline char32_t decode_utf8_codepoint(const char *p, size_t &length) {
+  const unsigned char lead = static_cast<unsigned char>(*p);
+  size_t continuation_bytes;
+  char32_t codepoint;
+  if (lead < 0x80) {
+    length = 1;
+    return lead;
+  } else if ((lead & 0xE0) == 0xC0) {
+    continuation_bytes = 1;
+    codepoint = lead & 0x1F;
+  } else if ((lead & 0xF0) == 0xE0) {
+    continuation_bytes = 2;
+    codepoint = lead & 0x0F;
+  } else if ((lead & 0xF8) == 0xF0) {
+    continuation_bytes = 3;
+    codepoint = lead & 0x07;
+  } else {
+    length = 1;
+    return lead;
+  }
+
+  for (size_t i = 1; i <= continuation_bytes; ++i) {
+    const unsigned char continuation = static_cast<unsigned char>(p[i]);
+    if ((continuation & 0xC0) != 0x80) {
+      length = 1;
+      return lead;
+    }
+    codepoint = (codepoint << 6) | (continuation & 0x3F);
+  }
+  length = continuation_bytes + 1;
+  return codepoint;
+}
+
+// Display width (in terminal columns) of string, mirroring get_wcswidth()
+// below but using mk_wcwidth() instead of the system's locale-dependent
+// wcwidth(), since Windows has neither.
+inline int get_display_width(const std::string &string, size_t max_characters) {
+  if (string.empty())
+    return 0;
+
+  const char *p = string.c_str();
+  size_t characters = 0;
+  int result = 0;
+
+  while (*p != '\0' && characters < max_characters) {
+    if (static_cast<unsigned char>(*p) == 0x1b) {
+      p = skip_ansi_escape_sequence(p);
+      continue;
+    }
+
+    size_t length;
+    const char32_t codepoint = decode_utf8_codepoint(p, length);
+    const int character_width = mk_wcwidth(codepoint);
+    if (character_width > 0)
+      result += character_width;
+
+    ++characters;
+    p += length;
+  }
+
+  return result;
+}
+#endif
+
 #if defined(__unix__) || defined(__unix) || defined(__APPLE__)
 inline int get_wcswidth(const std::string &string, const std::string &locale,
                         size_t max_column_width) {
@@ -6268,7 +6543,7 @@ inline size_t get_sequence_length(const std::string &text, const std::string &lo
 
 #if defined(_WIN32) || defined(_WIN64)
   (void)locale; // unused parameter
-  return count_bytes_outside_ansi_escapes(text, true);
+  return static_cast<size_t>(get_display_width(text, text.size()));
 #elif defined(__unix__) || defined(__unix) || defined(__APPLE__)
   auto result = get_wcswidth(text, locale, text.size());
   if (result >= 0)
@@ -6302,13 +6577,16 @@ inline size_t byte_offset_for_width(const std::string &text, const std::string &
       continue;
     }
     const char *character_start = p;
-    ++p;
-    while (*p != '\0' && (static_cast<unsigned char>(*p) & 0xC0) == 0x80)
-      ++p; // UTF-8 continuation byte: part of the same character
-    if (!first_character && consumed_width + 1 > max_width)
+    size_t length;
+    const char32_t codepoint = decode_utf8_codepoint(p, length);
+    int character_width = mk_wcwidth(codepoint);
+    if (character_width < 0)
+      character_width = 0;
+    if (!first_character && consumed_width + static_cast<size_t>(character_width) > max_width)
       return static_cast<size_t>(character_start - text.c_str());
-    consumed_width += 1;
+    consumed_width += static_cast<size_t>(character_width);
     first_character = false;
+    p = character_start + length;
   }
   return text.size();
 #elif defined(__unix__) || defined(__unix) || defined(__APPLE__)
@@ -6582,6 +6860,7 @@ class Format {
 public:
   Format &width(size_t value) {
     width_ = value;
+    touch();
     return *this;
   }
 
@@ -6590,11 +6869,13 @@ public:
   // cell-level values have no effect.
   Format &indent(size_t value) {
     indent_ = value;
+    touch();
     return *this;
   }
 
   Format &height(size_t value) {
     height_ = value;
+    touch();
     return *this;
   }
 
@@ -6603,26 +6884,31 @@ public:
     padding_right_ = value;
     padding_top_ = value;
     padding_bottom_ = value;
+    touch();
     return *this;
   }
 
   Format &padding_left(size_t value) {
     padding_left_ = value;
+    touch();
     return *this;
   }
 
   Format &padding_right(size_t value) {
     padding_right_ = value;
+    touch();
     return *this;
   }
 
   Format &padding_top(size_t value) {
     padding_top_ = value;
+    touch();
     return *this;
   }
 
   Format &padding_bottom(size_t value) {
     padding_bottom_ = value;
+    touch();
     return *this;
   }
 
@@ -6631,6 +6917,7 @@ public:
     border_right_ = value;
     border_top_ = value;
     border_bottom_ = value;
+    touch();
     return *this;
   }
 
@@ -6639,6 +6926,7 @@ public:
     border_right_color_ = value;
     border_top_color_ = value;
     border_bottom_color_ = value;
+    touch();
     return *this;
   }
 
@@ -6647,6 +6935,7 @@ public:
     border_right_background_color_ = value;
     border_top_background_color_ = value;
     border_bottom_background_color_ = value;
+    touch();
     return *this;
   }
 
@@ -6655,86 +6944,103 @@ public:
     border_right_style_ = value;
     border_top_style_ = value;
     border_bottom_style_ = value;
+    touch();
     return *this;
   }
 
   Format &border_left(const std::string &value) {
     border_left_ = value;
+    touch();
     return *this;
   }
 
   Format &border_left_color(Color value) {
     border_left_color_ = value;
+    touch();
     return *this;
   }
 
   Format &border_left_background_color(Color value) {
     border_left_background_color_ = value;
+    touch();
     return *this;
   }
 
   Format &border_left_style(const std::vector<FontStyle> &value) {
     border_left_style_ = value;
+    touch();
     return *this;
   }
 
   Format &border_right(const std::string &value) {
     border_right_ = value;
+    touch();
     return *this;
   }
 
   Format &border_right_color(Color value) {
     border_right_color_ = value;
+    touch();
     return *this;
   }
 
   Format &border_right_background_color(Color value) {
     border_right_background_color_ = value;
+    touch();
     return *this;
   }
 
   Format &border_right_style(const std::vector<FontStyle> &value) {
     border_right_style_ = value;
+    touch();
     return *this;
   }
 
   Format &border_top(const std::string &value) {
     border_top_ = value;
+    touch();
     return *this;
   }
 
   Format &border_top_color(Color value) {
     border_top_color_ = value;
+    touch();
     return *this;
   }
 
   Format &border_top_background_color(Color value) {
     border_top_background_color_ = value;
+    touch();
     return *this;
   }
 
   Format &border_top_style(const std::vector<FontStyle> &value) {
     border_top_style_ = value;
+    touch();
     return *this;
   }
 
   Format &border_bottom(const std::string &value) {
     border_bottom_ = value;
+    touch();
     return *this;
   }
 
   Format &border_bottom_color(Color value) {
     border_bottom_color_ = value;
+    touch();
     return *this;
   }
 
   Format &border_bottom_background_color(Color value) {
     border_bottom_background_color_ = value;
+    touch();
     return *this;
   }
 
   Format &border_bottom_style(const std::vector<FontStyle> &value) {
     border_bottom_style_ = value;
+    touch();
     return *this;
   }
 
@@ -6743,6 +7049,7 @@ public:
     show_border_bottom_ = true;
     show_border_left_ = true;
     show_border_right_ = true;
+    touch();
     return *this;
   }
 
@@ -6751,52 +7058,62 @@ public:
     show_border_bottom_ = false;
     show_border_left_ = false;
     show_border_right_ = false;
+    touch();
     return *this;
   }
 
   Format &show_border_top() {
     show_border_top_ = true;
+    touch();
     return *this;
   }
 
   Format &hide_border_top() {
     show_border_top_ = false;
+    touch();
     return *this;
   }
 
   Format &show_border_bottom() {
     show_border_bottom_ = true;
+    touch();
     return *this;
   }
 
   Format &hide_border_bottom() {
     show_border_bottom_ = false;
+    touch();
     return *this;
   }
 
   Format &show_border_left() {
     show_border_left_ = true;
+    touch();
     return *this;
   }
 
   Format &hide_border_left() {
     show_border_left_ = false;
+    touch();
     return *this;
   }
 
   Format &show_border_right() {
     show_border_right_ = true;
+    touch();
     return *this;
   }
 
   Format &hide_border_right() {
     show_border_right_ = false;
+    touch();
     return *this;
   }
 
   Format& show_row_separator() {
     show_border_top_ = true;
     show_row_separator_ = true;
+    touch();
     return *this;
   }
 
@@ -6805,6 +7122,7 @@ public:
     corner_top_right_ = value;
     corner_bottom_left_ = value;
     corner_bottom_right_ = value;
+    touch();
     return *this;
   }
 
@@ -6813,6 +7131,7 @@ public:
     corner_top_right_color_ = value;
     corner_bottom_left_color_ = value;
     corner_bottom_right_color_ = value;
+    touch();
     return *this;
   }
 
@@ -6821,6 +7140,7 @@ public:
     corner_top_right_background_color_ = value;
     corner_bottom_left_background_color_ = value;
     corner_bottom_right_background_color_ = value;
+    touch();
     return *this;
   }
 
@@ -6829,106 +7149,127 @@ public:
     corner_top_right_style_ = value;
     corner_bottom_left_style_ = value;
     corner_bottom_right_style_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_top_left(const std::string &value) {
     corner_top_left_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_top_left_color(Color value) {
     corner_top_left_color_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_top_left_background_color(Color value) {
     corner_top_left_background_color_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_top_left_style(const std::vector<FontStyle> &value) {
     corner_top_left_style_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_top_right(const std::string &value) {
     corner_top_right_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_top_right_color(Color value) {
     corner_top_right_color_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_top_right_background_color(Color value) {
     corner_top_right_background_color_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_top_right_style(const std::vector<FontStyle> &value) {
     corner_top_right_style_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_bottom_left(const std::string &value) {
     corner_bottom_left_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_bottom_left_color(Color value) {
     corner_bottom_left_color_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_bottom_left_background_color(Color value) {
     corner_bottom_left_background_color_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_bottom_left_style(const std::vector<FontStyle> &value) {
     corner_bottom_left_style_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_bottom_right(const std::string &value) {
     corner_bottom_right_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_bottom_right_color(Color value) {
     corner_bottom_right_color_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_bottom_right_background_color(Color value) {
     corner_bottom_right_background_color_ = value;
+    touch();
     return *this;
   }
 
   Format &corner_bottom_right_style(const std::vector<FontStyle> &value) {
     corner_bottom_right_style_ = value;
+    touch();
     return *this;
   }
 
   Format &column_separator(const std::string &value) {
     column_separator_ = value;
+    touch();
     return *this;
   }
 
   Format &column_separator_color(Color value) {
     column_separator_color_ = value;
+    touch();
     return *this;
   }
 
   Format &column_separator_background_color(Color value) {
     column_separator_background_color_ = value;
+    touch();
     return *this;
   }
 
   Format &font_align(FontAlign value) {
     font_align_ = value;
+    touch();
     return *this;
   }
 
@@ -6939,16 +7280,19 @@ public:
     } else {
       font_style_ = style;
     }
+    touch();
     return *this;
   }
 
   Format &font_color(Color value) {
     font_color_ = value;
+    touch();
     return *this;
   }
 
   Format &font_background_color(Color value) {
     font_background_color_ = value;
+    touch();
     return *this;
   }
 
@@ -6956,6 +7300,7 @@ public:
     font_color(value);
     border_color(value);
     corner_color(value);
+    touch();
     return *this;
   }
 
@@ -6963,16 +7308,19 @@ public:
     font_background_color(value);
     border_background_color(value);
     corner_background_color(value);
+    touch();
     return *this;
   }
 
   Format &multi_byte_characters(bool value) {
     multi_byte_characters_ = value;
+    touch();
     return *this;
   }
 
   Format &locale(const std::string &value) {
     locale_ = value;
+    touch();
     return *this;
   }
 
@@ -6985,6 +7333,7 @@ public:
 
   Format &trim_mode(TrimMode trim_mode) {
     trim_mode_ = trim_mode;
+    touch();
     return *this;
   }
 
@@ -7038,16 +7387,18 @@ public:
                                               const std::string &locale,
                                               bool is_multi_byte_character_support_enabled) {
     std::vector<std::string> result{};
-    std::string input = text;
-    size_t pos = 0;
-    std::string token;
-    while ((pos = input.find(delimiter)) != std::string::npos) {
-      token = input.substr(0, pos);
-      result.push_back(token);
-      input.erase(0, pos + delimiter.length());
+    // Index-based scan instead of copying `text` into a mutable buffer and
+    // repeatedly erase()-ing its front: erase() shifts the whole remainder
+    // left, making that approach O(n^2) in the number of lines.
+    size_t start = 0;
+    size_t pos;
+    while ((pos = text.find(delimiter, start)) != std::string::npos) {
+      result.push_back(text.substr(start, pos - start));
+      start = pos + delimiter.length();
     }
-    if (get_sequence_length(input, locale, is_multi_byte_character_support_enabled))
-      result.push_back(input);
+    std::string tail = text.substr(start);
+    if (get_sequence_length(tail, locale, is_multi_byte_character_support_enabled))
+      result.push_back(std::move(tail));
     return result;
   };
 
@@ -7128,8 +7479,9 @@ public:
   // than once, or rendering the same cell multiple times within one print.
   // Short-circuits on the first differing field, same as reset_inherited_fields.
   bool operator==(const Format &other) const {
-    bool result = true;
-#define TABULATE_FIELD_EQUAL(field) result = result && (field == other.field)
+#define TABULATE_FIELD_EQUAL(field)                                                               \
+    if (!(field == other.field))                                                                  \
+    return false
     TABULATE_FIELD_EQUAL(width_);
     TABULATE_FIELD_EQUAL(indent_);
     TABULATE_FIELD_EQUAL(height_);
@@ -7185,10 +7537,17 @@ public:
     TABULATE_FIELD_EQUAL(trim_mode_);
     TABULATE_FIELD_EQUAL(show_row_separator_);
 #undef TABULATE_FIELD_EQUAL
-    return result;
+    return true;
   }
 
   bool operator!=(const Format &other) const { return !(*this == other); }
+
+  // Monotonically increases whenever any setter runs (including transitively,
+  // e.g. color() calling font_color()/border_color()/corner_color()) or a
+  // merge() produces a new combined Format. Cell/Row::format() compare this
+  // against a saved snapshot to detect "did anything upstream change" in O(1)
+  // instead of comparing every field.
+  size_t generation() const { return generation_; }
 
 private:
   // Merge two formats
@@ -7487,10 +7846,18 @@ private:
 	  else
 		  result.show_row_separator_ = second.show_row_separator_;
 
+    result.touch();
     return result;
   }
 
 private:
+  static size_t &generation_counter() {
+    static size_t counter = 0;
+    return counter;
+  }
+  void touch() { generation_ = ++generation_counter(); }
+  mutable size_t generation_ = 0;
+
   friend class Cell;
   friend class Row;
   friend class Column;
@@ -7832,7 +8199,7 @@ private:
     size_t result{0};
     for (size_t i = 0; i < size(); ++i) {
       auto cell = cells_[i];
-      auto format = cell->format();
+      const auto &format = cell->format();
       if (format.height_.has_value())
         result = std::max(result, *format.height_);
     }
@@ -7873,7 +8240,7 @@ private:
   size_t get_cell_height(size_t cell_index, size_t column_width) {
     size_t result{0};
     Cell &cell = *(cells_[cell_index]);
-    auto format = cell.format();
+    const auto &format = cell.format();
     auto text = cell.get_text();
 
     auto padding_left = *format.padding_left_;
@@ -8126,7 +8493,7 @@ private:
     size_t result{0};
     for (size_t i = 0; i < size(); ++i) {
       auto cell = cells_[i];
-      auto format = cell.get().format();
+      const auto &format = cell.get().format();
       if (format.width_.has_value())
         result = std::max(result, *format.width_);
     }
@@ -8154,29 +8521,36 @@ private:
   size_t get_cell_width(size_t cell_index) {
     size_t result{0};
     Cell &cell = cells_[cell_index].get();
-    auto format = cell.format();
+    const auto &format = cell.format();
     if (format.padding_left_.has_value())
       result += *format.padding_left_;
 
-    // Check if input text has newlines
-    auto text = cell.get_text();
-    auto split_lines = Format::split_lines(text, "\n", cell.locale(),
-                                           cell.is_multi_byte_character_support_enabled());
-
-    // If there are no newlines in input, set column_width = text.size()
-    if (split_lines.size() == 1) {
+    // Check if input text has newlines. Skip Format::split_lines entirely in
+    // the common case where there are none -- it would otherwise copy the
+    // text and heap-allocate a vector just to tell us what find() already
+    // can for free.
+    const std::string &text = cell.get_text();
+    if (text.find('\n') == std::string::npos) {
       result += cell.size();
     } else {
-      // There are newlines in input
-      // Find widest substring in input and use this as column_width
-      size_t widest_sub_string_size{0};
-      for (auto &line : split_lines)
-        if (get_sequence_length(line, cell.locale(),
-                                cell.is_multi_byte_character_support_enabled()) >
-            widest_sub_string_size)
-          widest_sub_string_size = get_sequence_length(
-              line, cell.locale(), cell.is_multi_byte_character_support_enabled());
-      result += widest_sub_string_size;
+      auto split_lines = Format::split_lines(text, "\n", cell.locale(),
+                                             cell.is_multi_byte_character_support_enabled());
+      if (split_lines.size() == 1) {
+        // e.g. a single trailing newline with nothing after it: preserve
+        // the existing width calculation (same as the no-newline case
+        // above, using the raw text's length including the newline).
+        result += cell.size();
+      } else {
+        // Find widest substring in input and use this as column_width
+        size_t widest_sub_string_size{0};
+        for (auto &line : split_lines) {
+          auto line_length =
+              get_sequence_length(line, cell.locale(), cell.is_multi_byte_character_support_enabled());
+          if (line_length > widest_sub_string_size)
+            widest_sub_string_size = line_length;
+        }
+        result += widest_sub_string_size;
+      }
     }
 
     if (format.padding_right_.has_value())
@@ -8449,6 +8823,11 @@ namespace tabulate {
 
 class Printer {
 public:
+  // Column widths alone (no word-wrapping involved), used both by
+  // compute_cell_dimensions() and by print_table(), which needs them before
+  // it can word-wrap cell content to compute row heights.
+  static std::vector<size_t> compute_column_widths(TableInternal &table);
+
   static std::pair<std::vector<size_t>, std::vector<size_t>>
   compute_cell_dimensions(TableInternal &table);
 
@@ -8848,16 +9227,25 @@ private:
 
 inline Format &Cell::format() {
   std::shared_ptr<Row> parent = parent_.lock();
-  Format parent_format = parent->format();
+  // A reference, not a copy: Format has ~50 optional<> fields (several
+  // strings/vectors), so copying it on every call -- including the common
+  // case below where nothing changed and we return the cached result --
+  // would dominate print() cost on tables with many cells.
+  const Format &parent_format = parent->format();
   if (format_.has_value() && parent_format_snapshot_.has_value()) {
-    if (parent_format == *parent_format_snapshot_)
-      // Nothing upstream changed since the last merge: the cached result is
-      // still correct, so skip the expensive field-by-field work below.
+    if (parent_format.generation() == parent_format_snapshot_->generation())
+      // Nothing upstream changed since the last merge (cheap O(1) check):
+      // the cached result is still correct, so skip the expensive
+      // field-by-field work below.
       return *format_;
     // Let fields nobody explicitly overrode here track the parent's latest format.
     Format::reset_inherited_fields(*format_, *parent_format_snapshot_);
   }
-  format_ = Format::merge(format_.has_value() ? *format_ : Format(), parent_format);
+  // merge(Format(), parent_format) always reduces to parent_format field by
+  // field (an empty Format has nothing to take precedence) -- skip the ~49
+  // conditional field copies and the Format() throwaway when there's
+  // nothing of our own to merge in.
+  format_ = format_.has_value() ? Format::merge(*format_, parent_format) : parent_format;
   parent_format_snapshot_ = parent_format;
   return *format_;
 }
@@ -8868,37 +9256,45 @@ inline bool Cell::is_multi_byte_character_support_enabled() {
 
 inline Format &Row::format() {
   std::shared_ptr<TableInternal> parent = parent_.lock();
-  Format parent_format = parent->format();
+  // See the comment in Cell::format(): a reference avoids an expensive
+  // whole-Format copy on every call.
+  const Format &parent_format = parent->format();
   if (format_.has_value() && parent_format_snapshot_.has_value()) {
-    if (parent_format == *parent_format_snapshot_)
-      // Nothing upstream changed since the last merge: the cached result is
-      // still correct, so skip the expensive field-by-field work below.
+    if (parent_format.generation() == parent_format_snapshot_->generation())
+      // Nothing upstream changed since the last merge (cheap O(1) check):
+      // the cached result is still correct, so skip the expensive
+      // field-by-field work below.
       return *format_;
     // Let fields nobody explicitly overrode here track the parent's latest format.
     Format::reset_inherited_fields(*format_, *parent_format_snapshot_);
   }
-  format_ = Format::merge(format_.has_value() ? *format_ : Format(), parent_format);
+  // See the comment in Cell::format() above for why this skips merge() when
+  // there are no row-level overrides to merge in.
+  format_ = format_.has_value() ? Format::merge(*format_, parent_format) : parent_format;
   parent_format_snapshot_ = parent_format;
   return *format_;
+}
+
+inline std::vector<size_t> Printer::compute_column_widths(TableInternal &table) {
+  size_t num_columns = table.estimate_num_columns();
+  std::vector<size_t> column_widths{};
+  column_widths.reserve(num_columns);
+  for (size_t i = 0; i < num_columns; ++i) {
+    Column column = table.column(i);
+    size_t configured_width = column.get_configured_width();
+    size_t computed_width = column.get_computed_width();
+    column_widths.push_back(configured_width != 0 ? configured_width : computed_width);
+  }
+  return column_widths;
 }
 
 inline std::pair<std::vector<size_t>, std::vector<size_t>>
 Printer::compute_cell_dimensions(TableInternal &table) {
   std::pair<std::vector<size_t>, std::vector<size_t>> result;
   size_t num_rows = table.size();
-  size_t num_columns = table.estimate_num_columns();
-
-  std::vector<size_t> row_heights, column_widths{};
-
-  for (size_t i = 0; i < num_columns; ++i) {
-    Column column = table.column(i);
-    size_t configured_width = column.get_configured_width();
-    size_t computed_width = column.get_computed_width();
-    if (configured_width != 0)
-      column_widths.push_back(configured_width);
-    else
-      column_widths.push_back(computed_width);
-  }
+  std::vector<size_t> column_widths = compute_column_widths(table);
+  std::vector<size_t> row_heights;
+  row_heights.reserve(num_rows);
 
   for (size_t i = 0; i < num_rows; ++i) {
     Row &row = table[i];
@@ -8928,8 +9324,9 @@ Printer::compute_cell_dimensions(TableInternal &table) {
 
 inline std::vector<std::string> Printer::split_cell_text(Cell &cell, size_t column_width) {
   const std::string &text = cell.get_text();
-  auto padding_left = *cell.format().padding_left_;
-  auto padding_right = *cell.format().padding_right_;
+  const Format &format = cell.format();
+  auto padding_left = *format.padding_left_;
+  auto padding_right = *format.padding_right_;
 
   // Check if input text has embedded \n that are to be respected
   bool has_new_line = text.find_first_of('\n') != std::string::npos;
@@ -8963,20 +9360,32 @@ inline void Printer::print_table(std::ostream &stream, TableInternal &table) {
 
   size_t num_rows = table.size();
   size_t num_columns = table.estimate_num_columns();
-  auto dimensions = compute_cell_dimensions(table);
-  auto row_heights = dimensions.first;
-  auto column_widths = dimensions.second;
+  std::vector<size_t> column_widths = compute_column_widths(table);
   auto splitted_cells_text = std::vector<std::vector<std::vector<std::string>>>(
       num_rows, std::vector<std::vector<std::string>>(num_columns, std::vector<std::string>{}));
+  std::vector<size_t> row_heights(num_rows, 0);
 
-  // Pre-compute the cells' content and split them into lines before actually
-  // iterating the cells.
+  // Word-wrap each cell's text exactly once, then derive its row's height
+  // directly from the resulting line count -- row.get_computed_height()
+  // would otherwise redo the exact same word_wrap() independently just to
+  // count lines, doubling the cost of what is usually the most expensive
+  // part of printing a table.
   for (size_t i = 0; i < num_rows; ++i) {
     Row &row = table[i];
+    size_t row_height = row.get_configured_height();
     for (size_t j = 0; j < num_columns; ++j) {
       Cell &cell = row.cell(j);
-      splitted_cells_text[i][j] = split_cell_text(cell, column_widths[j]);
+      auto &lines = splitted_cells_text[i][j];
+      lines = split_cell_text(cell, column_widths[j]);
+      const auto &format = cell.format();
+      // split_cell_text() drops a trailing empty segment (see
+      // Format::split_lines), so completely empty cell content comes back
+      // as 0 lines -- but it still occupies one content line on screen.
+      size_t line_count = lines.empty() ? 1 : lines.size();
+      size_t cell_height = *format.padding_top_ + line_count + *format.padding_bottom_;
+      row_height = std::max(row_height, cell_height);
     }
+    row_heights[i] = row_height;
   }
 
   // For each row,
@@ -9007,7 +9416,7 @@ inline void Printer::print_table(std::ostream &stream, TableInternal &table) {
       auto bottom_border_needed{true};
       for (size_t j = 0; j < num_columns; ++j) {
         auto &cell = table[i][j];
-        auto format = cell.format();
+        const auto &format = cell.format();
         auto corner = *format.corner_bottom_left_;
         auto border_bottom = *format.border_bottom_;
         if (corner == "" && border_bottom == "") {
@@ -9055,7 +9464,7 @@ inline void Printer::print_row_in_cell(std::ostream &stream, TableInternal &tabl
   auto column_width = dimension.second;
   auto &cell = table[index.first][index.second];
   auto is_multi_byte_character_support_enabled = cell.is_multi_byte_character_support_enabled();
-  auto format = cell.format();
+  const auto &format = cell.format();
   auto text_height = splitted_cell_text.size();
   auto padding_top = *format.padding_top_;
 
@@ -9151,7 +9560,7 @@ inline bool Printer::print_cell_border_top(std::ostream &stream, TableInternal &
                                            const std::pair<size_t, size_t> &dimension,
                                            size_t num_columns) {
   auto &cell = table[index.first][index.second];
-  auto format = cell.format();
+  const auto &format = cell.format();
   auto column_width = dimension.second;
 
   auto corner = *format.corner_top_left_;
@@ -9217,7 +9626,7 @@ inline bool Printer::print_cell_border_bottom(std::ostream &stream, TableInterna
                                               const std::pair<size_t, size_t> &dimension,
                                               size_t num_columns) {
   auto &cell = table[index.first][index.second];
-  auto format = cell.format();
+  const auto &format = cell.format();
   auto column_width = dimension.second;
 
   auto corner = *format.corner_bottom_left_;
@@ -9754,7 +10163,7 @@ private:
       // Create alignment header cells
       std::vector<std::string> alignment_cells{};
       for (auto &cell : table[0]) {
-        auto format = cell.format();
+        const auto &format = cell.format();
         if (format.font_align_.value() == FontAlign::left) {
           alignment_cells.push_back(":----");
         } else if (format.font_align_.value() == FontAlign::center) {
@@ -9799,7 +10208,7 @@ private:
     // Apply markdown format to cells in each row
     for (auto row : table) {
       for (auto &cell : row) {
-        auto format = cell.format();
+        const auto &format = cell.format();
         formats_.push_back(format);
         cell.format()
             .hide_border_top()
@@ -9941,7 +10350,7 @@ private:
     std::string result{"{"};
 
     for (auto &cell : table[0]) {
-      auto format = cell.format();
+      const auto &format = cell.format();
       if (format.font_align_.value() == FontAlign::left) {
         result += 'l';
       } else if (format.font_align_.value() == FontAlign::center) {
@@ -10034,7 +10443,7 @@ public:
 private:
   std::string add_formatted_cell(Cell &cell) const {
     std::stringstream ss;
-    auto format = cell.format();
+    const auto &format = cell.format();
     std::string cell_string = cell.get_text();
 
     auto font_style = format.font_style_.value();
@@ -10073,7 +10482,7 @@ private:
     size_t column_count = table[0].size();
     size_t column_index = 0;
     for (auto &cell : table[0]) {
-      auto format = cell.format();
+      const auto &format = cell.format();
 
       if (format.font_align_.value() == FontAlign::left) {
         ss << '<';
@@ -10150,8 +10559,8 @@ SOFTWARE.
 // #endif
 
 // Project version
-#define TABULATE_VERSION_MAJOR 1
-#define TABULATE_VERSION_MINOR 5
+#define TABULATE_VERSION_MAJOR 2
+#define TABULATE_VERSION_MINOR 2
 #define TABULATE_VERSION_PATCH 0
 
 // Composing the protocol version string from major, and minor
