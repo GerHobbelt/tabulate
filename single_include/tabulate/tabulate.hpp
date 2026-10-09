@@ -4145,22 +4145,22 @@ inline namespace literals {
 inline namespace string_view_literals {
 
 
-constexpr std::string_view operator "" _sv( const char* str, size_t len ) noexcept  // (1)
+constexpr std::string_view operator ""_sv( const char* str, size_t len ) noexcept  // (1)
 {
     return std::string_view{ str, len };
 }
 
-constexpr std::u16string_view operator "" _sv( const char16_t* str, size_t len ) noexcept  // (2)
+constexpr std::u16string_view operator ""_sv( const char16_t* str, size_t len ) noexcept  // (2)
 {
     return std::u16string_view{ str, len };
 }
 
-constexpr std::u32string_view operator "" _sv( const char32_t* str, size_t len ) noexcept  // (3)
+constexpr std::u32string_view operator ""_sv( const char32_t* str, size_t len ) noexcept  // (3)
 {
     return std::u32string_view{ str, len };
 }
 
-constexpr std::wstring_view operator "" _sv( const wchar_t* str, size_t len ) noexcept  // (4)
+constexpr std::wstring_view operator ""_sv( const wchar_t* str, size_t len ) noexcept  // (4)
 {
     return std::wstring_view{ str, len };
 }
@@ -8066,7 +8066,7 @@ using nonstd::optional;
 
 class Cell {
 public:
-  explicit Cell(std::shared_ptr<class Row> parent) : parent_(parent) {}
+  explicit Cell(std::shared_ptr<class Row> parent) : parent_(parent.get()) {}
 
   void set_text(const std::string &text) { data_ = text; }
 
@@ -8084,7 +8084,10 @@ public:
 
 private:
   std::string data_;
-  std::weak_ptr<class Row> parent_;
+  // Raw, not weak_ptr: a Cell is only ever reachable through its owning Row
+  // (which outlives it), and weak_ptr::lock()'s atomic refcount bump showed
+  // up as a measurable per-cell cost in printing's hot path.
+  class Row *parent_;
   optional<Format> format_;
   optional<Format> parent_format_snapshot_;
 };
@@ -8153,7 +8156,7 @@ using nonstd::optional;
 
 class Row {
 public:
-  explicit Row(std::shared_ptr<class TableInternal> parent) : parent_(parent) {}
+  explicit Row(std::shared_ptr<class TableInternal> parent) : parent_(parent.get()) {}
 
   void add_cell(std::shared_ptr<Cell> cell) { cells_.push_back(cell); }
 
@@ -8283,7 +8286,8 @@ private:
   }
 
   std::vector<std::shared_ptr<Cell>> cells_;
-  std::weak_ptr<class TableInternal> parent_;
+  // Raw, not weak_ptr: see the comment on Cell::parent_ in cell.hpp.
+  class TableInternal *parent_;
   optional<Format> format_;
   optional<Format> parent_format_snapshot_;
 };
@@ -8511,16 +8515,17 @@ private:
   size_t get_computed_width() {
     size_t result{0};
     for (size_t i = 0; i < size(); ++i) {
-      result = std::max(result, get_cell_width(i));
+      result = std::max(result, get_cell_width(cells_[i].get()));
     }
     return result;
   }
 
-  // Returns padding_left + cell_contents.size() + padding_right
-  // for a given cell in the column
-  size_t get_cell_width(size_t cell_index) {
+  // Returns padding_left + cell_contents.size() + padding_right for a given
+  // cell. Static and keyed off the Cell itself (not a column index) so
+  // Printer::compute_column_widths() can call it directly while iterating
+  // rows, without needing to materialize a Column's cell-reference vector.
+  static size_t get_cell_width(Cell &cell) {
     size_t result{0};
-    Cell &cell = cells_[cell_index].get();
     const auto &format = cell.format();
     if (format.padding_left_.has_value())
       result += *format.padding_left_;
@@ -8865,6 +8870,29 @@ public:
   static void reset_element_style(std::ostream &stream) { stream << termcolor::reset; }
 
 private:
+  // Repeats `unit` until the result is `width` units long. Used to build
+  // border/separator lines. A naive loop appending `unit` once per
+  // iteration is the single hottest part of printing a plain table (profiled
+  // via `sample` -- each append(), even reserve()'d, still pays a function
+  // call + bounds check per column-width unit, 10-20+ times per cell). The
+  // single-char case (the overwhelming majority: "-", "|", "+", ...) uses
+  // the fill constructor directly; the general case doubles the buffer each
+  // round instead of growing it one unit at a time, for O(log width) appends.
+  static std::string repeat_to_width(const std::string &unit, size_t width) {
+    if (width == 0 || unit.empty())
+      return {};
+    if (unit.size() == 1)
+      return std::string(width, unit[0]);
+    const size_t target = unit.size() * width;
+    std::string line = unit;
+    line.reserve(target);
+    while (line.size() < target) {
+      size_t remaining = target - line.size();
+      line.append(line, 0, std::min(line.size(), remaining));
+    }
+    return line;
+  }
+
   static void print_content_left_aligned(std::ostream &stream, const std::string &cell_content,
                                          const Format &format, size_t text_with_padding_size,
                                          size_t column_width) {
@@ -9226,12 +9254,11 @@ private:
 };
 
 inline Format &Cell::format() {
-  std::shared_ptr<Row> parent = parent_.lock();
   // A reference, not a copy: Format has ~50 optional<> fields (several
   // strings/vectors), so copying it on every call -- including the common
   // case below where nothing changed and we return the cached result --
   // would dominate print() cost on tables with many cells.
-  const Format &parent_format = parent->format();
+  const Format &parent_format = parent_->format();
   if (format_.has_value() && parent_format_snapshot_.has_value()) {
     if (parent_format.generation() == parent_format_snapshot_->generation())
       // Nothing upstream changed since the last merge (cheap O(1) check):
@@ -9255,10 +9282,9 @@ inline bool Cell::is_multi_byte_character_support_enabled() {
 }
 
 inline Format &Row::format() {
-  std::shared_ptr<TableInternal> parent = parent_.lock();
   // See the comment in Cell::format(): a reference avoids an expensive
   // whole-Format copy on every call.
-  const Format &parent_format = parent->format();
+  const Format &parent_format = parent_->format();
   if (format_.has_value() && parent_format_snapshot_.has_value()) {
     if (parent_format.generation() == parent_format_snapshot_->generation())
       // Nothing upstream changed since the last merge (cheap O(1) check):
@@ -9277,14 +9303,30 @@ inline Format &Row::format() {
 
 inline std::vector<size_t> Printer::compute_column_widths(TableInternal &table) {
   size_t num_columns = table.estimate_num_columns();
-  std::vector<size_t> column_widths{};
-  column_widths.reserve(num_columns);
-  for (size_t i = 0; i < num_columns; ++i) {
-    Column column = table.column(i);
-    size_t configured_width = column.get_configured_width();
-    size_t computed_width = column.get_computed_width();
-    column_widths.push_back(configured_width != 0 ? configured_width : computed_width);
+  size_t num_rows = table.size();
+  std::vector<size_t> configured_widths(num_columns, 0);
+  std::vector<size_t> computed_widths(num_columns, 0);
+
+  // A single direct pass over every cell, each visited exactly once and its
+  // format() computed exactly once. table.column(j) would instead rebuild a
+  // whole vector<reference_wrapper<Cell>> by re-scanning every row, once per
+  // column, then scan it twice more (get_configured_width() and
+  // get_computed_width()) -- effectively 3 full O(rows) passes per column
+  // where one combined O(rows * columns) pass suffices.
+  for (size_t i = 0; i < num_rows; ++i) {
+    Row &row = table[i];
+    for (size_t j = 0; j < num_columns; ++j) {
+      Cell &cell = row.cell(j);
+      const auto &format = cell.format();
+      if (format.width_.has_value())
+        configured_widths[j] = std::max(configured_widths[j], *format.width_);
+      computed_widths[j] = std::max(computed_widths[j], Column::get_cell_width(cell));
+    }
   }
+
+  std::vector<size_t> column_widths(num_columns);
+  for (size_t j = 0; j < num_columns; ++j)
+    column_widths[j] = configured_widths[j] != 0 ? configured_widths[j] : computed_widths[j];
   return column_widths;
 }
 
@@ -9345,6 +9387,19 @@ inline std::vector<std::string> Printer::split_cell_text(Cell &cell, size_t colu
   // column_width
   auto content_width = column_width > padding_left + padding_right ? column_width - padding_left - padding_right
                                                                    : column_width;
+
+  // Common case: the column is already at least as wide as this cell's own
+  // text (e.g. every column width not explicitly configured is sized to fit
+  // its widest cell, so every other/shorter cell in it always fits too).
+  // word_wrap() would tokenize the text on spaces/dashes/tabs and then
+  // reassemble those tokens completely unchanged -- skip that tokenizing
+  // machinery and go straight to the identical single-line result.
+  if (text.empty())
+    return {};
+  if (get_sequence_length(text, cell.locale(), cell.is_multi_byte_character_support_enabled()) <=
+      content_width)
+    return {text};
+
   auto word_wrapped_text = Format::word_wrap(text, content_width, cell.locale(),
                                              cell.is_multi_byte_character_support_enabled());
   return Format::split_lines(word_wrapped_text, "\n", cell.locale(),
@@ -9463,8 +9518,12 @@ inline void Printer::print_row_in_cell(std::ostream &stream, TableInternal &tabl
                                        const std::vector<std::string> &splitted_cell_text) {
   auto column_width = dimension.second;
   auto &cell = table[index.first][index.second];
-  auto is_multi_byte_character_support_enabled = cell.is_multi_byte_character_support_enabled();
   const auto &format = cell.format();
+  // Avoids the redundant format() lookups that cell.locale()/
+  // cell.is_multi_byte_character_support_enabled() would otherwise each do
+  // on every one of their several call sites below.
+  const std::string &locale = *format.locale_;
+  auto is_multi_byte_character_support_enabled = *format.multi_byte_characters_;
   auto text_height = splitted_cell_text.size();
   auto padding_top = *format.padding_top_;
 
@@ -9476,7 +9535,7 @@ inline void Printer::print_row_in_cell(std::ostream &stream, TableInternal &tabl
   } else {
     // Keep the row the same width as the border/corner lines around it
     stream << std::string(
-        get_sequence_length(*format.border_left_, cell.locale(), is_multi_byte_character_support_enabled),
+        get_sequence_length(*format.border_left_, locale, is_multi_byte_character_support_enabled),
         ' ');
   }
 
@@ -9513,7 +9572,7 @@ inline void Printer::print_row_in_cell(std::ostream &stream, TableInternal &tabl
       }
 
       auto line_with_padding_size =
-          get_sequence_length(line, cell.locale(), is_multi_byte_character_support_enabled) +
+          get_sequence_length(line, locale, is_multi_byte_character_support_enabled) +
           padding_left + padding_right;
       switch (*format.font_align_) {
       case FontAlign::left:
@@ -9548,7 +9607,7 @@ inline void Printer::print_row_in_cell(std::ostream &stream, TableInternal &tabl
       reset_element_style(stream);
     } else {
       // Keep the row the same width as the border/corner lines around it
-      stream << std::string(get_sequence_length(*format.border_right_, cell.locale(),
+      stream << std::string(get_sequence_length(*format.border_right_, locale,
                                                 is_multi_byte_character_support_enabled),
                             ' ');
     }
@@ -9589,10 +9648,7 @@ inline bool Printer::print_cell_border_top(std::ostream &stream, TableInternal &
     // single write, instead of once per column-width unit.
     const std::string &repeated_unit =
         (*format.show_row_separator_ && index.first == 0) ? std::string(" ") : border_top;
-    std::string line;
-    line.reserve(repeated_unit.size() * column_width);
-    for (size_t i = 0; i < column_width; ++i)
-      line += repeated_unit;
+    std::string line = repeat_to_width(repeated_unit, column_width);
 
     apply_element_style(stream, *format.border_top_color_, *format.border_top_background_color_,
                         *format.border_top_style_);
@@ -9646,10 +9702,7 @@ inline bool Printer::print_cell_border_bottom(std::ostream &stream, TableInterna
   {
     // Apply style once and batch the repeated border character into a
     // single write, instead of once per column-width unit.
-    std::string line;
-    line.reserve(border_bottom.size() * column_width);
-    for (size_t i = 0; i < column_width; ++i)
-      line += border_bottom;
+    std::string line = repeat_to_width(border_bottom, column_width);
 
     apply_element_style(stream, *format.border_bottom_color_,
                         *format.border_bottom_background_color_, *format.border_bottom_style_);
